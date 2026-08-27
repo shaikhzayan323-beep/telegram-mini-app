@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   ArrowDownToLine,
@@ -55,12 +55,20 @@ type DemoState = {
   tasks: Task[];
   history: HistoryItem[];
   haptics: boolean;
+  dailyCheckInDate: string;
 };
 
+function getLocalDateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 const initialTasks: Task[] = [
-  { id: 'daily-check', title: 'Daily check-in', description: 'Open today’s reward card', amount: 0.24, duration: '5 sec', claimed: false, kind: 'check' },
-  { id: 'watch-brief', title: 'Watch a short ad', description: 'View a partner message', amount: 0.38, duration: '15 sec', claimed: false, kind: 'video' },
-  { id: 'community-visit', title: 'Visit the community', description: 'Explore the demo channel', amount: 0.18, duration: '10 sec', claimed: false, kind: 'community' },
+  { id: 'daily-check', title: 'Daily Check-in', description: 'Claim today’s demo reward', amount: 0.24, duration: '5 sec', claimed: false, kind: 'check' },
+  { id: 'watch-brief', title: 'Watch Demo Ad', description: 'Preview a partner message', amount: 0.38, duration: '15 sec', claimed: false, kind: 'video' },
+  { id: 'community-visit', title: 'Visit Sponsor', description: 'Open the sponsor demo', amount: 0.18, duration: '10 sec', claimed: false, kind: 'community' },
 ];
 
 const initialHistory: HistoryItem[] = [
@@ -73,6 +81,7 @@ const initialState: DemoState = {
   tasks: initialTasks,
   history: initialHistory,
   haptics: true,
+  dailyCheckInDate: getLocalDateKey(),
 };
 
 function Home() {
@@ -85,6 +94,7 @@ function Home() {
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [watchingTask, setWatchingTask] = useState<string | null>(null);
+  const watchingTaskRef = useRef<string | null>(null);
   const [adProgress, setAdProgress] = useState(0);
 
   useEffect(() => {
@@ -94,7 +104,19 @@ function Home() {
     const timer = window.setTimeout(() => {
       if (stored) {
         try {
-          setState({ ...initialState, ...JSON.parse(stored) });
+          const storedState = JSON.parse(stored) as Partial<DemoState>;
+          const hydratedState: DemoState = {
+            ...initialState,
+            ...storedState,
+            tasks: Array.isArray(storedState.tasks) ? storedState.tasks : initialState.tasks,
+            history: Array.isArray(storedState.history) ? storedState.history : initialState.history,
+          };
+          const today = getLocalDateKey();
+          if (hydratedState.dailyCheckInDate !== today) {
+            hydratedState.tasks = hydratedState.tasks.map((task) => task.id === 'daily-check' ? { ...task, claimed: false } : task);
+            hydratedState.dailyCheckInDate = today;
+          }
+          setState(hydratedState);
         } catch {
           setState(initialState);
         }
@@ -131,7 +153,8 @@ function Home() {
 
   function watchTask(taskId: string) {
     const task = state.tasks.find((item) => item.id === taskId);
-    if (!task || task.claimed || watchingTask) return;
+    if (!task || task.claimed || watchingTaskRef.current) return;
+    watchingTaskRef.current = taskId;
     setWatchingTask(taskId);
     setAdProgress(1);
     window.setTimeout(() => {
@@ -140,18 +163,23 @@ function Home() {
         setAdProgress(3);
         window.setTimeout(() => {
           setState((current) => ({
-            ...current,
-            balance: Number((current.balance + task.amount).toFixed(4)),
-            tasks: current.tasks.map((item) => item.id === taskId ? { ...item, claimed: true } : item),
-            history: [{
-              id: `task-${Date.now()}`,
-              title: task.title,
-              detail: 'Demo reward credited',
-              amount: task.amount,
-              time: 'Just now',
-              positive: true,
-            }, ...current.history].slice(0, 8),
-          }));
+             ...current,
+             balance: current.tasks.some((item) => item.id === taskId && !item.claimed)
+               ? Number((current.balance + task.amount).toFixed(4))
+               : current.balance,
+             tasks: current.tasks.map((item) => item.id === taskId ? { ...item, claimed: true } : item),
+             history: current.tasks.some((item) => item.id === taskId && !item.claimed)
+               ? [{
+                   id: `task-${Date.now()}`,
+                   title: task.title,
+                   detail: 'DEMO reward credited',
+                   amount: task.amount,
+                   time: 'Just now',
+                   positive: true,
+                 }, ...current.history].slice(0, 8)
+               : current.history,
+           }));
+           watchingTaskRef.current = null;
           setWatchingTask(null);
           setAdProgress(0);
           if (state.haptics) bridge.notification('success');
@@ -163,6 +191,7 @@ function Home() {
 
   function resetDemo() {
     window.localStorage.removeItem(STORAGE_KEY);
+    watchingTaskRef.current = null;
     setState(initialState);
     setSettingsOpen(false);
     feedback('Demo wallet reset on this device.');
@@ -317,14 +346,16 @@ function SectionHeading({ eyebrow, title, action }: { eyebrow: string; title: st
 
 function TaskCard({ task, index, watching, progress, onWatch }: { task: Task; index: number; watching: boolean; progress: number; onWatch: (id: string) => void }) {
   const icon = task.kind === 'video' ? <Play size={16} fill="currentColor" /> : task.kind === 'community' ? <UsersRound size={17} /> : <Check size={17} />;
+  const status = watching ? 'In progress' : task.claimed ? (task.id === 'daily-check' ? 'Completed today' : 'Completed') : 'Ready';
   return <article className={`stagger-in stagger-${Math.min(index + 1, 4)} rounded-[1.35rem] border p-3.5 transition ${task.claimed ? 'border-[#c9ebda] bg-[#f1fbf5]' : 'border-[#d8e2e3] bg-[#fbfdfc] hover:border-[#acd9c2]'}`} data-testid={`card-task-${task.id}`}>
     <div className="flex items-center gap-3">
       <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${task.claimed ? 'bg-[#d9f3e4] text-[#16845a]' : 'bg-[#e8f1f1] text-[#466872]'}`}>{task.claimed ? <Check size={18} strokeWidth={2.5} /> : icon}</span>
       <div className="min-w-0 flex-1"><p className={`truncate text-[13px] font-bold ${task.claimed ? 'text-[#5f8877]' : 'text-[#102b3a]'}`}>{task.title}</p><p className="mt-1 truncate text-[10px] text-[#82919a]">{task.description} · {task.duration}</p></div>
-      <div className="shrink-0 text-right"><p className={`font-mono-custom text-[11px] font-medium ${task.claimed ? 'text-[#599477]' : 'text-[#16845a]'}`}>+{task.amount.toFixed(2)}</p><p className="font-mono-custom text-[9px] text-[#9aa8ad]">USDT</p></div>
+      <div className="shrink-0 text-right"><p className={`font-mono-custom text-[11px] font-medium ${task.claimed ? 'text-[#599477]' : 'text-[#16845a]'}`}>+{task.amount.toFixed(2)} <span className="text-[9px]">DEMO</span></p><p className="font-mono-custom text-[9px] text-[#9aa8ad]">USDT</p></div>
     </div>
+    <div className="mt-2 flex items-center justify-between px-0.5"><span className="font-mono-custom text-[9px] uppercase tracking-[.12em] text-[#94a3a6]">Status</span><span className={`font-mono-custom text-[9px] uppercase tracking-[.1em] ${task.claimed ? 'text-[#16845a]' : watching ? 'text-[#d87532]' : 'text-[#71858c]'}`}>{status}</span></div>
     <button className={`pressable mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[11px] font-bold ${task.claimed ? 'cursor-default bg-[#e1f3e8] text-[#5b8c74]' : 'bg-[#102b3a] text-[#f4fbf7] hover:bg-[#173f4b]'} disabled:cursor-wait disabled:opacity-70`} onClick={() => onWatch(task.id)} disabled={task.claimed || watching} data-testid={`button-watch-ad-${task.id}`}>
-      {watching ? <><RefreshCw size={14} className="animate-spin" />{progress === 1 ? 'Opening ad…' : progress === 2 ? 'Watching…' : 'Crediting reward…'}</> : task.claimed ? <><Check size={14} />Reward claimed</> : <><Play size={14} fill="currentColor" />Watch Ad · +{task.amount.toFixed(2)} USDT</>}
+      {watching ? <><RefreshCw size={14} className="animate-spin" />{progress === 1 ? 'Opening demo…' : progress === 2 ? 'Watching demo…' : 'Crediting demo…'}</> : task.claimed ? <><Check size={14} />Completed</> : <><Play size={14} fill="currentColor" />Watch Ad · +{task.amount.toFixed(2)} DEMO USDT</>}
     </button>
   </article>;
 }
