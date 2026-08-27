@@ -23,7 +23,7 @@ type TelegramWindow = Window & {
 };
 
 export function createTelegramBridge(): TelegramBridge {
-  const webApp = (window as TelegramWindow).Telegram?.WebApp;
+  const webApp = typeof window === 'undefined' ? undefined : (window as TelegramWindow).Telegram?.WebApp;
   return {
     isTelegram: Boolean(webApp),
     ready: () => webApp?.ready?.(),

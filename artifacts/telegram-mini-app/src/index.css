@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
@@ -19,38 +19,39 @@
 }
 
 :root {
-  --background: 42 34% 95%;
-  --foreground: 215 27% 17%;
-  --card: 45 42% 98%;
-  --card-foreground: 215 27% 17%;
-  --border: 37 25% 86%;
-  --primary: 192 89% 42%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 38 38% 91%;
-  --muted: 39 22% 90%;
-  --muted-foreground: 215 12% 48%;
-  --accent: 11 86% 63%;
+  --background: 210 44% 96%;
+  --foreground: 218 44% 14%;
+  --card: 150 35% 98%;
+  --card-foreground: 218 44% 14%;
+  --border: 210 24% 88%;
+  --primary: 157 72% 39%;
+  --primary-foreground: 150 35% 98%;
+  --secondary: 210 32% 92%;
+  --muted: 210 24% 93%;
+  --muted-foreground: 216 18% 47%;
+  --accent: 25 92% 58%;
   --destructive: 5 72% 52%;
-  --ring: 192 89% 42%;
+  --ring: 157 72% 39%;
   --app-font-sans: 'Manrope', sans-serif;
+  --app-font-display: 'Space Grotesk', sans-serif;
   --app-font-mono: 'DM Mono', monospace;
   --radius: 1.1rem;
 }
 
 .dark {
-  --background: 215 28% 12%;
-  --foreground: 42 34% 95%;
-  --card: 215 25% 16%;
-  --card-foreground: 42 34% 95%;
-  --border: 215 18% 25%;
-  --primary: 188 83% 53%;
-  --primary-foreground: 215 28% 12%;
-  --secondary: 215 20% 22%;
-  --muted: 215 20% 22%;
-  --muted-foreground: 215 12% 67%;
-  --accent: 11 82% 66%;
+  --background: 218 44% 14%;
+  --foreground: 210 44% 96%;
+  --card: 218 39% 18%;
+  --card-foreground: 210 44% 96%;
+  --border: 218 25% 27%;
+  --primary: 157 64% 47%;
+  --primary-foreground: 218 44% 14%;
+  --secondary: 218 30% 24%;
+  --muted: 218 30% 24%;
+  --muted-foreground: 214 20% 70%;
+  --accent: 25 88% 61%;
   --destructive: 5 72% 60%;
-  --ring: 188 83% 53%;
+  --ring: 157 64% 47%;
 }
 
 @layer base {
@@ -71,7 +72,7 @@
 }
 
 @keyframes rise-in {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
 @keyframes pop-in {
@@ -93,24 +94,24 @@
   content: '';
   position: fixed;
   z-index: 0;
-  width: 29rem;
-  height: 29rem;
-  right: -13rem;
-  top: -14rem;
+   width: 34rem;
+   height: 34rem;
+   right: -17rem;
+   top: -17rem;
   border-radius: 50%;
-  background: hsl(var(--primary) / .11);
+   background: hsl(var(--primary) / .09);
   pointer-events: none;
 }
 .app-shell::after {
   content: '';
   position: fixed;
   z-index: 0;
-  width: 18rem;
-  height: 18rem;
-  left: -11rem;
-  bottom: 8rem;
+   width: 20rem;
+   height: 20rem;
+   left: -13rem;
+   bottom: 5rem;
   border-radius: 50%;
-  background: hsl(var(--accent) / .08);
+   background: hsl(var(--accent) / .08);
   pointer-events: none;
 }
 .app-content { position: relative; z-index: 1; }
@@ -127,13 +128,20 @@
   animation: shimmer 1.4s ease infinite;
 }
 .font-mono-custom { font-family: var(--app-font-mono); }
+.font-display-custom { font-family: var(--app-font-display); }
+.app-grid {
+  background-image: linear-gradient(hsl(var(--foreground) / .025) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--foreground) / .025) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { scrollbar-width: none; }
 .safe-bottom { padding-bottom: max(1.25rem, env(safe-area-inset-bottom)); }
 .check-path { stroke-dasharray: 24; animation: checkmark .35s ease-out both; }
 
 @media (min-width: 768px) {
   .phone-frame {
-    width: min(100%, 780px);
+     width: min(100%, 960px);
     margin: 0 auto;
-    padding: 0 2rem 2rem;
+     padding: 0 2.5rem 2rem;
   }
 }
