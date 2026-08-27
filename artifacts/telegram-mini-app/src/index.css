@@ -1,0 +1,139 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--app-font-sans);
+  --font-mono: var(--app-font-mono);
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-border: hsl(var(--border));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+}
+
+:root {
+  --background: 42 34% 95%;
+  --foreground: 215 27% 17%;
+  --card: 45 42% 98%;
+  --card-foreground: 215 27% 17%;
+  --border: 37 25% 86%;
+  --primary: 192 89% 42%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 38 38% 91%;
+  --muted: 39 22% 90%;
+  --muted-foreground: 215 12% 48%;
+  --accent: 11 86% 63%;
+  --destructive: 5 72% 52%;
+  --ring: 192 89% 42%;
+  --app-font-sans: 'Manrope', sans-serif;
+  --app-font-mono: 'DM Mono', monospace;
+  --radius: 1.1rem;
+}
+
+.dark {
+  --background: 215 28% 12%;
+  --foreground: 42 34% 95%;
+  --card: 215 25% 16%;
+  --card-foreground: 42 34% 95%;
+  --border: 215 18% 25%;
+  --primary: 188 83% 53%;
+  --primary-foreground: 215 28% 12%;
+  --secondary: 215 20% 22%;
+  --muted: 215 20% 22%;
+  --muted-foreground: 215 12% 67%;
+  --accent: 11 82% 66%;
+  --destructive: 5 72% 60%;
+  --ring: 188 83% 53%;
+}
+
+@layer base {
+  * { box-sizing: border-box; }
+  html { background: hsl(var(--background)); }
+  body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100dvh;
+    font-family: var(--app-font-sans);
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input, textarea { font: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 3px solid hsl(var(--primary) / .35); outline-offset: 3px; }
+}
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pop-in {
+  0% { opacity: 0; transform: scale(.94); }
+  70% { opacity: 1; transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+@keyframes checkmark {
+  from { stroke-dashoffset: 24; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+.app-shell { min-height: 100dvh; position: relative; overflow-x: hidden; }
+.app-shell::before {
+  content: '';
+  position: fixed;
+  z-index: 0;
+  width: 29rem;
+  height: 29rem;
+  right: -13rem;
+  top: -14rem;
+  border-radius: 50%;
+  background: hsl(var(--primary) / .11);
+  pointer-events: none;
+}
+.app-shell::after {
+  content: '';
+  position: fixed;
+  z-index: 0;
+  width: 18rem;
+  height: 18rem;
+  left: -11rem;
+  bottom: 8rem;
+  border-radius: 50%;
+  background: hsl(var(--accent) / .08);
+  pointer-events: none;
+}
+.app-content { position: relative; z-index: 1; }
+.stagger-in { animation: rise-in .55s cubic-bezier(.2,.8,.2,1) both; }
+.stagger-1 { animation-delay: 60ms; }
+.stagger-2 { animation-delay: 120ms; }
+.stagger-3 { animation-delay: 180ms; }
+.stagger-4 { animation-delay: 240ms; }
+.pressable { transition: transform .18s ease, background-color .18s ease, border-color .18s ease; }
+.pressable:active { transform: scale(.97); }
+.skeleton {
+  background: linear-gradient(100deg, hsl(var(--muted)) 30%, hsl(var(--card)) 50%, hsl(var(--muted)) 70%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+.font-mono-custom { font-family: var(--app-font-mono); }
+.safe-bottom { padding-bottom: max(1.25rem, env(safe-area-inset-bottom)); }
+.check-path { stroke-dasharray: 24; animation: checkmark .35s ease-out both; }
+
+@media (min-width: 768px) {
+  .phone-frame {
+    width: min(100%, 780px);
+    margin: 0 auto;
+    padding: 0 2rem 2rem;
+  }
+}

@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Telegram Mini App"
+description = "A mobile-first Telegram Mini App starter with a polished dashboard, quick actions, activity tracking, and Telegram Web App-ready interactions."
+version = "1.0.0"
+id = "artifacts/telegram-mini-app"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19791
+
+[services.development]
+run = "pnpm --filter @workspace/telegram-mini-app run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/telegram-mini-app", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/telegram-mini-app/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19791"
+BASE_PATH = "/"
