@@ -16,6 +16,7 @@ import {
   Settings2,
   Share2,
   ShieldCheck,
+  UsersRound,
   WalletCards,
   X,
   Zap,
@@ -26,13 +27,13 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { createTelegramBridge } from '@/lib/telegram';
 import { showAdsgramRewardedAd } from '@/lib/adsgram';
+import { createReferralProfile, REFERRAL_REWARD, type ReferralProfile } from '@/lib/referrals';
 import { Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 
 const queryClient = new QueryClient();
 const STORAGE_KEY = 'usdt-mining-wallet-demo-v1';
-const REFERRAL_LINK = 'https://t.me/usdtminingwalletbot?start=DEMO7K4';
 
-type Tab = 'wallet' | 'earn' | 'history';
+type Tab = 'wallet' | 'earn' | 'history' | 'referral';
 type Task = {
   id: string;
   title: string;
@@ -56,6 +57,7 @@ type DemoState = {
   history: HistoryItem[];
   haptics: boolean;
   dailyCheckInDate: string;
+  referrals: ReferralProfile;
 };
 
 function getLocalDateKey(date = new Date()) {
@@ -87,6 +89,15 @@ const initialState: DemoState = {
   history: initialHistory,
   haptics: true,
   dailyCheckInDate: getLocalDateKey(),
+  referrals: {
+    code: '',
+    link: '',
+    count: 0,
+    earnings: 0,
+    referredBy: null,
+    referredUserIds: [],
+    creditedCount: 0,
+  },
 };
 
 function Home() {
@@ -112,14 +123,26 @@ function Home() {
         try {
           const storedState = JSON.parse(stored) as Partial<DemoState>;
           const storedTasks = Array.isArray(storedState.tasks) ? storedState.tasks : [];
+          const referralProfile = createReferralProfile(bridge.userId, bridge.startParam, storedState.referrals);
+          const referralRewardsToCredit = Math.max(0, referralProfile.count - referralProfile.creditedCount);
+          const referralHistory = Array.from({ length: referralRewardsToCredit }, (_, index) => ({
+            id: `referral-${referralProfile.creditedCount + index + 1}`,
+            title: 'Referral reward',
+            detail: 'DEMO referral bonus',
+            amount: REFERRAL_REWARD,
+            time: 'Just now',
+            positive: true,
+          }));
           const hydratedState: DemoState = {
             ...initialState,
             ...storedState,
+            balance: Number(((typeof storedState.balance === 'number' ? storedState.balance : initialState.balance) + referralRewardsToCredit * REFERRAL_REWARD).toFixed(4)),
             tasks: initialTasks.map((task) => {
               const storedTask = storedTasks.find((candidate) => candidate.id === task.id);
               return storedTask ? { ...task, claimed: storedTask.claimed === true } : task;
             }),
-            history: Array.isArray(storedState.history) ? storedState.history : initialState.history,
+            history: [...referralHistory, ...(Array.isArray(storedState.history) ? storedState.history : initialState.history)].slice(0, 8),
+            referrals: { ...referralProfile, creditedCount: referralProfile.count },
           };
           const today = getLocalDateKey();
           if (hydratedState.dailyCheckInDate !== today) {
@@ -230,12 +253,17 @@ function Home() {
   }
 
   async function copyReferral() {
+    const referralLink = state.referrals.link;
+    if (!referralLink) {
+      feedback('Referral link is still loading.');
+      return;
+    }
     try {
-      await navigator.clipboard.writeText(REFERRAL_LINK);
+      await navigator.clipboard.writeText(referralLink);
       feedback('Referral link copied.');
     } catch {
       const input = document.createElement('textarea');
-      input.value = REFERRAL_LINK;
+      input.value = referralLink;
       input.style.position = 'fixed';
       input.style.opacity = '0';
       document.body.appendChild(input);
@@ -247,9 +275,14 @@ function Home() {
   }
 
   async function shareReferral() {
+    const referralLink = state.referrals.link;
+    if (!referralLink) {
+      feedback('Referral link is still loading.');
+      return;
+    }
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'USDT MINING WALLET', text: 'Join my demo mining wallet', url: REFERRAL_LINK });
+        await navigator.share({ title: 'USDT MINING WALLET', text: 'Join my demo mining wallet', url: referralLink });
         feedback('Share sheet opened.');
         return;
       } catch {
@@ -304,7 +337,7 @@ function Home() {
             </div>
             <div className="mt-5 grid grid-cols-3 gap-2 border-t border-white/10 pt-4">
               <WalletStat label="Tasks done" value={`${claimedCount}/${state.tasks.length}`} />
-              <WalletStat label="Referrals" value="03" />
+              <WalletStat label="Referrals" value={String(state.referrals.count).padStart(2, '0')} />
               <WalletStat label="Network" value="Demo" />
             </div>
           </div>
@@ -314,6 +347,7 @@ function Home() {
           <TabButton active={tab === 'wallet'} label="Wallet" icon={<Layers3 size={15} />} onClick={() => selectTab('wallet')} testId="button-tab-wallet" />
           <TabButton active={tab === 'earn'} label="Earn" icon={<CircleDollarSign size={15} />} onClick={() => selectTab('earn')} testId="button-tab-earn" />
           <TabButton active={tab === 'history'} label="History" icon={<History size={15} />} onClick={() => selectTab('history')} testId="button-tab-history" />
+          <TabButton active={tab === 'referral'} label="Referrals" icon={<UsersRound size={15} />} onClick={() => selectTab('referral')} testId="button-tab-referrals" />
         </div>
 
         {(tab === 'wallet' || tab === 'earn') && (
@@ -340,7 +374,7 @@ function Home() {
         )}
 
         {(tab === 'wallet' || tab === 'history') && <ActivitySection history={state.history} />}
-        {(tab === 'wallet' || tab === 'history') && <ReferralSection onCopy={copyReferral} onShare={shareReferral} />}
+        {tab === 'referral' && <ReferralPage profile={state.referrals} onCopy={copyReferral} onShare={shareReferral} />}
 
         <footer className="mt-9 flex items-center justify-between border-t border-[#d8e2e3] pt-5 text-[10px] text-[#82919a]">
           <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-[#1daf73]" />Demo data stays on this device</span>
@@ -352,6 +386,7 @@ function Home() {
         <div className="mx-auto flex max-w-[520px] items-center justify-around">
           <BottomNavButton active={tab === 'wallet'} icon={<WalletCards size={18} />} label="Wallet" onClick={() => selectTab('wallet')} testId="button-bottom-wallet" />
           <BottomNavButton active={tab === 'earn'} icon={<Gift size={18} />} label="Earn" onClick={() => selectTab('earn')} testId="button-bottom-earn" />
+          <BottomNavButton active={tab === 'referral'} icon={<UsersRound size={18} />} label="Refer" onClick={() => selectTab('referral')} testId="button-bottom-referrals" />
           <BottomNavButton active={tab === 'history'} icon={<History size={18} />} label="History" onClick={() => selectTab('history')} testId="button-bottom-history" />
           <BottomNavButton active={profileOpen} icon={<Settings2 size={18} />} label="Profile" onClick={() => setProfileOpen(true)} testId="button-bottom-profile" />
         </div>
@@ -397,8 +432,21 @@ function ActivitySection({ history }: { history: HistoryItem[] }) {
   return <section id="history" className="mt-8 stagger-in" aria-label="Transaction and task history"><SectionHeading eyebrow="Proof of activity" title="Recent history" action="Local only" /><div className="mt-3 overflow-hidden rounded-[1.45rem] border border-[#d8e2e3] bg-[#fbfdfc]">{history.length === 0 ? <div className="px-5 py-10 text-center"><History size={22} className="mx-auto text-[#9badb0]" /><p className="mt-3 text-[13px] font-bold text-[#536b72]">No activity yet</p><p className="mt-1 text-[11px] text-[#8a999e]">Complete an earning task to see it here.</p></div> : history.map((item, index) => <div className={`flex items-center gap-3 px-4 py-3.5 ${index > 0 ? 'border-t border-[#e7eeee]' : ''}`} key={item.id} data-testid={`row-history-${item.id}`}><span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${item.positive ? 'bg-[#e3f7ec] text-[#16845a]' : 'bg-[#fff0e2] text-[#d87532]'}`}>{item.positive ? <ArrowDownToLine size={16} /> : <ArrowUpRight size={16} />}</span><div className="min-w-0 flex-1"><p className="truncate text-[12px] font-bold text-[#284652]">{item.title}</p><p className="mt-0.5 truncate text-[10px] text-[#88989d]">{item.detail} · {item.time}</p></div><span className={`font-mono-custom text-[11px] font-medium ${item.positive ? 'text-[#16845a]' : 'text-[#d87532]'}`}>{item.positive ? '+' : '-'}{item.amount.toFixed(2)}</span></div>)}</div></section>;
 }
 
-function ReferralSection({ onCopy, onShare }: { onCopy: () => void; onShare: () => void }) {
-  return <section className="mt-7 stagger-in stagger-2" aria-label="Referral program"><div className="overflow-hidden rounded-[1.55rem] bg-[#e8f0ff] p-5"><div className="flex items-start justify-between"><div><p className="font-mono-custom text-[10px] uppercase tracking-[.16em] text-[#526fa5]">Referral loop</p><h2 className="mt-1 font-display-custom text-[21px] font-bold tracking-[-.05em] text-[#1d3454]">Bring your circle.</h2></div><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#d8e5ff] text-[#5574ae]"><Gift size={19} /></span></div><p className="mt-2 max-w-[300px] text-[12px] leading-5 text-[#607798]">Invite friends to the demo and track an illustrative bonus. No accounts or real payouts are created.</p><div className="mt-4 flex items-center gap-2 rounded-xl border border-[#ccdcfa] bg-[#f4f7ff] px-3 py-2.5"><span className="min-w-0 flex-1 truncate font-mono-custom text-[10px] text-[#58729d]">{REFERRAL_LINK}</span><button className="pressable shrink-0 rounded-lg p-1.5 text-[#5574ae] hover:bg-[#e3ebff]" onClick={onCopy} aria-label="Copy referral link" data-testid="button-copy-referral"><Copy size={15} /></button></div><div className="mt-4 grid grid-cols-2 gap-2"><button className="pressable flex items-center justify-center gap-2 rounded-xl bg-[#1d3454] py-3 text-[11px] font-bold text-[#f4fbf7]" onClick={onShare} data-testid="button-share-referral"><Share2 size={14} />Share invite</button><button className="pressable flex items-center justify-center gap-2 rounded-xl border border-[#bcd0f3] bg-[#eef3ff] py-3 text-[11px] font-bold text-[#5574ae]" onClick={onCopy} data-testid="button-copy-referral-wide"><Copy size={14} />Copy link</button></div></div></section>;
+function ReferralPage({ profile, onCopy, onShare }: { profile: ReferralProfile; onCopy: () => void; onShare: () => void }) {
+  return <section id="referral" className="mt-8 stagger-in stagger-2" aria-label="Referral program">
+    <SectionHeading eyebrow="Invite loop" title="Refer & earn" action={`${profile.count} referral${profile.count === 1 ? '' : 's'}`} />
+    <div className="mt-4 grid grid-cols-2 gap-2.5">
+      <div className="rounded-[1.35rem] border border-[#c9ebda] bg-[#f1fbf5] p-4"><p className="font-mono-custom text-[9px] uppercase tracking-[.14em] text-[#5c8d77]">Referrals</p><p className="mt-1 font-display-custom text-[25px] font-bold tracking-[-.05em] text-[#16845a]" data-testid="text-referral-count">{profile.count}</p><p className="mt-1 text-[10px] text-[#7a9b8c]">Unique DEMO joins</p></div>
+      <div className="rounded-[1.35rem] border border-[#ccdcfa] bg-[#f4f7ff] p-4"><p className="font-mono-custom text-[9px] uppercase tracking-[.14em] text-[#58729d]">Earnings</p><p className="mt-1 font-display-custom text-[21px] font-bold tracking-[-.05em] text-[#315986]" data-testid="text-referral-earnings">+{profile.earnings.toFixed(2)}</p><p className="mt-1 font-mono-custom text-[9px] text-[#7892b5]">DEMO USDT</p></div>
+    </div>
+    <div className="mt-3 overflow-hidden rounded-[1.55rem] bg-[#e8f0ff] p-5">
+      <div className="flex items-start justify-between"><div><p className="font-mono-custom text-[10px] uppercase tracking-[.16em] text-[#526fa5]">Your invite link</p><h2 className="mt-1 font-display-custom text-[21px] font-bold tracking-[-.05em] text-[#1d3454]">Bring your circle.</h2></div><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#d8e5ff] text-[#5574ae]"><Gift size={19} /></span></div>
+      <p className="mt-2 max-w-[320px] text-[12px] leading-5 text-[#607798]">This link is unique to your Telegram account and uses a DEMO start code.</p>
+      <div className="mt-4 flex items-center gap-2 rounded-xl border border-[#ccdcfa] bg-[#f4f7ff] px-3 py-2.5"><span className="min-w-0 flex-1 truncate font-mono-custom text-[10px] text-[#58729d]" data-testid="text-referral-link">{profile.link}</span><button className="pressable shrink-0 rounded-lg p-1.5 text-[#5574ae] hover:bg-[#e3ebff]" onClick={onCopy} aria-label="Copy referral link" data-testid="button-copy-referral"><Copy size={15} /></button></div>
+      <div className="mt-4 grid grid-cols-2 gap-2"><button className="pressable flex items-center justify-center gap-2 rounded-xl bg-[#1d3454] py-3 text-[11px] font-bold text-[#f4fbf7]" onClick={onShare} data-testid="button-share-referral"><Share2 size={14} />Share invite</button><button className="pressable flex items-center justify-center gap-2 rounded-xl border border-[#bcd0f3] bg-[#eef3ff] py-3 text-[11px] font-bold text-[#5574ae]" onClick={onCopy} data-testid="button-copy-referral-wide"><Copy size={14} />Copy link</button></div>
+    </div>
+    <div className="mt-3 rounded-[1.35rem] border border-[#d8e2e3] bg-[#fbfdfc] p-4"><p className="flex items-center gap-2 text-[11px] font-bold text-[#284652]"><ShieldCheck size={15} className="text-[#1b9b68]" />DEMO tracking safeguards</p><p className="mt-2 text-[11px] leading-5 text-[#7a8b91]">{profile.referredBy ? 'You joined through one DEMO referral. Reusing the same invite cannot create another referral.' : 'Each Telegram user can be counted once. Your own link cannot refer back to yourself.'} Referral rewards are local DEMO values only.</p></div>
+  </section>;
 }
 
 function TabButton({ active, label, icon, onClick, testId }: { active: boolean; label: string; icon: ReactNode; onClick: () => void; testId: string }) {
