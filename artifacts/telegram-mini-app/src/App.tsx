@@ -26,6 +26,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { createTelegramBridge } from '@/lib/telegram';
+import { getAdsgramController } from '@/lib/adsgram';
 import { Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 
 const queryClient = new QueryClient();
@@ -95,6 +96,7 @@ function Home() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [watchingTask, setWatchingTask] = useState<string | null>(null);
   const watchingTaskRef = useRef<string | null>(null);
+  const rewardedTaskRef = useRef(new Set<string>());
   const [adProgress, setAdProgress] = useState(0);
 
   useEffect(() => {
@@ -151,34 +153,72 @@ function Home() {
     if (state.haptics) bridge.impact('light');
   }
 
-  function watchTask(taskId: string) {
+  function creditDemoReward(task: Task) {
+    if (rewardedTaskRef.current.has(task.id)) return;
+    rewardedTaskRef.current.add(task.id);
+
+    setState((current) => ({
+      ...current,
+      balance: current.tasks.some((item) => item.id === task.id && !item.claimed)
+        ? Number((current.balance + task.amount).toFixed(4))
+        : current.balance,
+      tasks: current.tasks.map((item) => item.id === task.id ? { ...item, claimed: true } : item),
+      history: current.tasks.some((item) => item.id === task.id && !item.claimed)
+        ? [{
+            id: `task-${Date.now()}`,
+            title: task.title,
+            detail: 'DEMO reward credited',
+            amount: task.amount,
+            time: 'Just now',
+            positive: true,
+          }, ...current.history].slice(0, 8)
+        : current.history,
+    }));
+  }
+
+  async function watchTask(taskId: string) {
     const task = state.tasks.find((item) => item.id === taskId);
     if (!task || task.claimed || watchingTaskRef.current) return;
     watchingTaskRef.current = taskId;
     setWatchingTask(taskId);
     setAdProgress(1);
+
+    if (task.id === 'watch-brief') {
+      const controller = getAdsgramController();
+      if (!controller) {
+        watchingTaskRef.current = null;
+        setWatchingTask(null);
+        setAdProgress(0);
+        setToast('Demo ad is unavailable right now. No reward was added.');
+        return;
+      }
+
+      setAdProgress(2);
+      try {
+        const result = await controller.show();
+        if (result.done === true && result.error !== true) {
+          creditDemoReward(task);
+          if (state.haptics) bridge.notification('success');
+          setToast(`+${task.amount.toFixed(2)} DEMO USDT added to demo balance`);
+        } else {
+          setToast('No DEMO reward — the ad was not completed.');
+        }
+      } catch {
+        setToast('No DEMO reward — the ad was skipped, closed, or unavailable.');
+      } finally {
+        watchingTaskRef.current = null;
+        setWatchingTask(null);
+        setAdProgress(0);
+      }
+      return;
+    }
+
     window.setTimeout(() => {
       setAdProgress(2);
       window.setTimeout(() => {
         setAdProgress(3);
         window.setTimeout(() => {
-          setState((current) => ({
-             ...current,
-             balance: current.tasks.some((item) => item.id === taskId && !item.claimed)
-               ? Number((current.balance + task.amount).toFixed(4))
-               : current.balance,
-             tasks: current.tasks.map((item) => item.id === taskId ? { ...item, claimed: true } : item),
-             history: current.tasks.some((item) => item.id === taskId && !item.claimed)
-               ? [{
-                   id: `task-${Date.now()}`,
-                   title: task.title,
-                   detail: 'DEMO reward credited',
-                   amount: task.amount,
-                   time: 'Just now',
-                   positive: true,
-                 }, ...current.history].slice(0, 8)
-               : current.history,
-           }));
+          creditDemoReward(task);
            watchingTaskRef.current = null;
           setWatchingTask(null);
           setAdProgress(0);
@@ -192,6 +232,7 @@ function Home() {
   function resetDemo() {
     window.localStorage.removeItem(STORAGE_KEY);
     watchingTaskRef.current = null;
+    rewardedTaskRef.current.clear();
     setState(initialState);
     setSettingsOpen(false);
     feedback('Demo wallet reset on this device.');
@@ -355,7 +396,7 @@ function TaskCard({ task, index, watching, progress, onWatch }: { task: Task; in
     </div>
     <div className="mt-2 flex items-center justify-between px-0.5"><span className="font-mono-custom text-[9px] uppercase tracking-[.12em] text-[#94a3a6]">Status</span><span className={`font-mono-custom text-[9px] uppercase tracking-[.1em] ${task.claimed ? 'text-[#16845a]' : watching ? 'text-[#d87532]' : 'text-[#71858c]'}`}>{status}</span></div>
     <button className={`pressable mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[11px] font-bold ${task.claimed ? 'cursor-default bg-[#e1f3e8] text-[#5b8c74]' : 'bg-[#102b3a] text-[#f4fbf7] hover:bg-[#173f4b]'} disabled:cursor-wait disabled:opacity-70`} onClick={() => onWatch(task.id)} disabled={task.claimed || watching} data-testid={`button-watch-ad-${task.id}`}>
-      {watching ? <><RefreshCw size={14} className="animate-spin" />{progress === 1 ? 'Opening demo…' : progress === 2 ? 'Watching demo…' : 'Crediting demo…'}</> : task.claimed ? <><Check size={14} />Completed</> : <><Play size={14} fill="currentColor" />Watch Ad · +{task.amount.toFixed(2)} DEMO USDT</>}
+      {watching ? <><RefreshCw size={14} className="animate-spin" />{progress === 1 ? 'Opening demo…' : progress === 2 ? (task.id === 'watch-brief' ? 'Watching AdsGram…' : 'Watching demo…') : 'Crediting demo…'}</> : task.claimed ? <><Check size={14} />Completed</> : <><Play size={14} fill="currentColor" />Watch Ad · +{task.amount.toFixed(2)} DEMO USDT</>}
     </button>
   </article>;
 }
