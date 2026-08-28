@@ -458,8 +458,126 @@ function BottomNavButton({ active, icon, label, onClick, testId }: { active: boo
 }
 
 function ProfileSheet({ bridge, haptics, onToggleHaptics, onReset, onClose }: { bridge: ReturnType<typeof createTelegramBridge>; haptics: boolean; onToggleHaptics: () => void; onReset: () => void; onClose: () => void }) {
-  const initials = bridge.firstName.slice(0, 2).toUpperCase();
-  return <Modal title="Profile & settings" eyebrow="Personal wallet" onClose={onClose}><div className="flex items-center gap-3 rounded-2xl bg-[#e8f1f1] p-3.5"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#102b3a] font-display-custom text-[13px] font-bold text-[#73d8ac]">{initials}</span><div><p className="font-display-custom text-[16px] font-bold text-[#102b3a]" data-testid="text-telegram-first-name">{bridge.firstName}</p><p className="mt-0.5 font-mono-custom text-[10px] text-[#7a8b91]">Local session · wallet #7K4</p></div></div><div className="mt-4 divide-y divide-[#e3ebeb] overflow-hidden rounded-2xl border border-[#d8e2e3] bg-[#fbfdfc]"><SettingRow icon={<Bell size={16} />} title="Tactile feedback" description={haptics ? 'Enabled for wallet actions' : 'Muted in this browser'} enabled={haptics} onClick={onToggleHaptics} testId="button-toggle-haptics" /><SettingRow icon={<ShieldCheck size={16} />} title="Telegram connection" description={bridge.isTelegram ? `Connected · ${bridge.firstName}` : 'Browser preview mode · User fallback'} enabled={bridge.isTelegram} onClick={() => bridge.isTelegram ? bridge.impact('light') : undefined} testId="button-telegram-status" /></div><button className="pressable mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[11px] font-bold text-[#b06149] hover:bg-[#fff0e9]" onClick={onReset} data-testid="button-reset-demo"><RefreshCw size={14} />Reset local demo data</button><p className="mt-4 text-center text-[10px] leading-4 text-[#91a0a4]">This wallet is simulated. Never enter a seed phrase or connect a real wallet.</p></Modal>;
+  const initials = bridge.firstName.slice(0, 2).toUpperCase();const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
+  const username = tgUser?.username ? `@${tgUser.username}` : 'Not available';
+  const telegramId = tgUser?.id ? String(tgUser.id) : 'Not available';
+  const appVersion = '1.0.0';
+  const referralStatus = 'DEMO tracking active';
+  return (
+  <Modal title="Profile & settings" eyebrow="Personal wallet" onClose={onClose}>
+    <div className="flex items-center gap-3 rounded-2xl bg-[#e8f1f1] p-3.5">
+      <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#102b3a] font-display-custom text-[13px] font-bold text-[#73d8ac]">
+        {initials}
+      </span>
+
+      <div className="min-w-0">
+        <p
+          className="font-display-custom text-[16px] font-bold text-[#102b3a]"
+          data-testid="text-telegram-first-name"
+        >
+          {bridge.firstName || 'Telegram User'}
+        </p>
+
+        <p className="mt-0.5 font-mono-custom text-[10px] text-[#7a8b91]">
+          {bridge.isTelegram ? 'Telegram connected' : 'Browser preview mode'}
+        </p>
+      </div>
+    </div>
+
+    <div className="mt-4 divide-y divide-[#e3ebeb] overflow-hidden rounded-2xl border border-[#d8e2e3] bg-[#fbfdfc]">
+
+      <SettingRow
+        icon={<Bell size={16} />}
+        title="Tactile feedback"
+        description={haptics ? 'Enabled for wallet actions' : 'Muted in this browser'}
+        enabled={haptics}
+        onClick={onToggleHaptics}
+        testId="button-toggle-haptics"
+      />
+
+      <SettingRow
+        icon={<ShieldCheck size={16} />}
+        title="Telegram connection"
+        description={
+          bridge.isTelegram
+            ? `Connected · ${bridge.firstName || 'User'}`
+            : 'Browser preview mode · User fallback'
+        }
+        enabled={bridge.isTelegram}
+        onClick={() => bridge.isTelegram ? bridge.impact('light') : undefined}
+        testId="button-telegram-status"
+      />
+    </div>
+
+    <div className="mt-4 rounded-2xl border border-[#d8e2e3] bg-[#fbfdfc] p-4">
+      <p className="font-display-custom text-[12px] font-bold text-[#102b3a]">
+        Account information
+      </p>
+
+      <div className="mt-3 space-y-3 text-[11px]">
+        <div className="flex justify-between gap-3">
+          <span className="text-[#819198]">First name</span>
+          <span className="font-semibold text-[#102b3a]">
+            {bridge.firstName || 'Not available'}
+          </span>
+        </div>
+
+        <div className="flex justify-between gap-3">
+          <span className="text-[#819198]">Telegram status</span>
+          <span className="font-semibold text-[#16845a]">
+            {bridge.isTelegram ? 'Connected' : 'Preview'}
+          </span>
+        </div>
+
+        <div className="flex justify-between gap-3">
+          <span className="text-[#819198]">App version</span>
+          <span className="font-semibold text-[#102b3a]">1.0.0 DEMO</span>
+        </div>
+
+        <div className="flex justify-between gap-3">
+          <span className="text-[#819198]">Referral status</span>
+          <span className="font-semibold text-[#16845a]">DEMO tracking</span>
+        </div>
+      </div>
+    </div>
+
+    <div className="mt-4 rounded-2xl border border-[#d8e2e3] bg-[#f5faf8] p-4">
+      <p className="font-display-custom text-[12px] font-bold text-[#16845a]">
+        DEMO ONLY
+      </p>
+      <p className="mt-1 text-[10px] leading-4 text-[#718188]">
+        This application uses simulated balances and rewards only.
+        No real USDT transfers, withdrawals, or wallet credentials are used.
+      </p>
+    </div>
+
+    <div className="mt-4 grid grid-cols-2 gap-2">
+      {['Help', 'Terms', 'Privacy', 'Contact'].map((label) => (
+        <button
+          key={label}
+          type="button"
+          className="pressable rounded-xl border border-[#d8e2e3] bg-[#fbfdfc] py-3 text-[11px] font-bold text-[#102b3a]"
+          onClick={() => bridge.impact('light')}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+
+    <button
+      className="pressable mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[11px] font-bold text-[#b06149] hover:bg-[#fff0e9]"
+      onClick={onReset}
+      data-testid="button-reset-demo"
+    >
+      <RefreshCw size={14} />
+      Reset local demo data
+    </button>
+
+    <p className="mt-4 text-center text-[10px] leading-4 text-[#91a0a4]">
+      This wallet is simulated. Never enter a seed phrase or connect a real wallet.
+    </p>
+  </Modal>
+);
 }
 
 function SettingRow({ icon, title, description, enabled, onClick, testId }: { icon: ReactNode; title: string; description: string; enabled: boolean; onClick: () => void; testId: string }) {
