@@ -12,7 +12,9 @@ import {
   Info,
   Layers3,
   Play,
+  Plus,
   RefreshCw,
+  Trash2,
   Settings2,
   Share2,
   ShieldCheck,
@@ -109,6 +111,7 @@ function Home() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
   const [watchingTask, setWatchingTask] = useState<string | null>(null);
   const watchingTaskRef = useRef<string | null>(null);
   const rewardedTaskRef = useRef(new Set<string>());
@@ -392,8 +395,64 @@ function Home() {
         </div>
       </nav>
 
-      {profileOpen && <ProfileSheet bridge={bridge} haptics={state.haptics} onToggleHaptics={() => setState((current) => ({ ...current, haptics: !current.haptics }))} onReset={resetDemo} onClose={() => setProfileOpen(false)} />}
-      {withdrawOpen && <Modal title="Withdrawal preview" eyebrow="Safe demo boundary" onClose={() => setWithdrawOpen(false)}><div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#fff0e2] text-[#d87532]"><ArrowDownToLine size={22} /></div><h3 className="mt-4 font-display-custom text-[22px] font-bold tracking-[-.05em] text-[#102b3a]">Nothing leaves your wallet.</h3><p className="mt-2 text-[13px] leading-6 text-[#6d7c83]">This experience is a local product demo. A real withdrawal would require identity checks, a destination address, and a secure payment service — none of those are connected here.</p><button className="pressable mt-5 w-full rounded-2xl bg-[#102b3a] py-3.5 text-[13px] font-bold text-[#f4fbf7]" onClick={() => { setWithdrawOpen(false); feedback('Withdrawal remains unavailable in demo mode.'); }} data-testid="button-close-withdraw-preview">Got it</button></Modal>}
+            {profileOpen && (
+        <ProfileSheet
+          bridge={bridge}
+          haptics={state.haptics}
+          onToggleHaptics={() =>
+            setState((current) => ({
+              ...current,
+              haptics: !current.haptics,
+            }))
+          }
+          onReset={resetDemo}
+onClose={() => setProfileOpen(false)}
+onAdmin={() => setAdminOpen(true)}
+/>
+      )}
+
+      {withdrawOpen && (
+        <Modal
+          title="Withdrawal preview"
+          eyebrow="Safe demo boundary"
+          onClose={() => setWithdrawOpen(false)}
+        >
+          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#fff0e2] text-[#d87532]">
+            <ArrowDownToLine size={22} />
+          </div>
+
+          <h3 className="mt-4 font-display-custom text-[22px] font-bold tracking-[-.05em] text-[#102b3a]">
+            Nothing leaves your wallet.
+          </h3>
+
+          <p className="mt-2 text-[13px] leading-6 text-[#6d7c83]">
+            This experience is a local product demo. A real withdrawal would
+            require identity checks, a destination address, and a secure
+            payment service — none of those are connected here.
+          </p>
+
+          <button
+            className="pressable mt-5 w-full rounded-2xl bg-[#102b3a] py-3.5 text-[13px] font-bold text-[#f4fbf7]"
+            onClick={() => {
+              setWithdrawOpen(false);
+              feedback('Withdrawal remains unavailable in demo mode.');
+            }}
+            data-testid="button-close-withdraw-preview"
+          >
+            Got it
+          </button>
+        </Modal>
+      )}
+
+      {toast && (
+        <div
+          className="fixed bottom-[78px] left-1/2 z-50 -translate-x-1/2 rounded-full bg-[#102b3a] px-4 py-2.5 text-[11px] font-bold text-[#f4fbf7] shadow-[0_12px_30px_rgba(16,43,58,.22)] sm:bottom-5"
+          role="status"
+          data-testid="status-toast"
+        >
+          {toast}
+        </div>
+      )}
       {toast && <div className="fixed bottom-[78px] left-1/2 z-50 -translate-x-1/2 rounded-full bg-[#102b3a] px-4 py-2.5 text-[11px] font-bold text-[#f4fbf7] shadow-[0_12px_30px_rgba(16,43,58,.22)] sm:bottom-5" role="status" data-testid="status-toast">{toast}</div>}
     </main>
   );
@@ -457,7 +516,7 @@ function BottomNavButton({ active, icon, label, onClick, testId }: { active: boo
   return <button className={`pressable flex min-w-[64px] flex-col items-center gap-1 rounded-xl px-3 py-1 text-[10px] font-bold ${active ? 'text-[#16845a]' : 'text-[#819198]'}`} onClick={onClick} data-testid={testId}>{icon}<span>{label}</span></button>;
 }
 
-function ProfileSheet({ bridge, haptics, onToggleHaptics, onReset, onClose }: { bridge: ReturnType<typeof createTelegramBridge>; haptics: boolean; onToggleHaptics: () => void; onReset: () => void; onClose: () => void }) {
+function ProfileSheet({ bridge, haptics, onToggleHaptics, onReset, onClose, onAdmin }: { bridge: ReturnType<typeof createTelegramBridge>; haptics: boolean; onToggleHaptics: () => void; onReset: () => void; onClose: () => void; onAdmin: () => void }) {
   const initials = bridge.firstName.slice(0, 2).toUpperCase();const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
   const username = tgUser?.username ? `@${tgUser.username}` : 'Not available';
   const telegramId = tgUser?.id ? String(tgUser.id) : 'Not available';
@@ -565,6 +624,16 @@ function ProfileSheet({ bridge, haptics, onToggleHaptics, onReset, onClose }: { 
     </div>
 
     <button
+      type="button"
+      className="pressable mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#bcdcca] bg-[#f1fbf5] py-3 text-[11px] font-bold text-[#16845a]"
+      onClick={onAdmin}
+      data-testid="button-open-demo-admin"
+    >
+      <Settings2 size={14} />
+      Demo Admin
+    </button>
+
+    <button
       className="pressable mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[11px] font-bold text-[#b06149] hover:bg-[#fff0e9]"
       onClick={onReset}
       data-testid="button-reset-demo"
@@ -572,12 +641,301 @@ function ProfileSheet({ bridge, haptics, onToggleHaptics, onReset, onClose }: { 
       <RefreshCw size={14} />
       Reset local demo data
     </button>
-
+<button
+  type="button"
+  className="pressable mt-3 flex w-full items-center justify-center rounded-xl bg-[#102b3a] py-3 text-[11px] font-bold text-white"
+  onClick={onClose}
+  data-testid="button-close-profile"
+>
+  Close
+</button>
     <p className="mt-4 text-center text-[10px] leading-4 text-[#91a0a4]">
       This wallet is simulated. Never enter a seed phrase or connect a real wallet.
     </p>
   </Modal>
 );
+}
+
+
+function AdminPanel({ tasks, onTasksChange, onResetTasks, onResetDemo, onClose }: {
+  tasks: Task[];
+  onTasksChange: (tasks: Task[]) => void;
+  onResetTasks: () => void;
+  onResetDemo: () => void;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState<Task[]>(() => tasks.map((task) => ({ ...task })));
+  const [newTaskOpen, setNewTaskOpen] = useState(false);
+  const [newTask, setNewTask] = useState<Task>({
+    id: '',
+    title: '',
+    description: '',
+    amount: 0.25,
+    duration: '15 sec',
+    claimed: false,
+    kind: 'video',
+  });
+
+  useEffect(() => {
+    setDraft(tasks.map((task) => ({ ...task })));
+  }, [tasks]);
+
+  function updateTask(id: string, field: keyof Task, value: string | number | boolean) {
+    const next = draft.map((task) => task.id === id ? { ...task, [field]: value } as Task : task);
+    setDraft(next);
+    onTasksChange(next);
+  }
+
+  function removeTask(id: string) {
+    const next = draft.filter((task) => task.id !== id);
+    setDraft(next);
+    onTasksChange(next);
+  }
+
+  function addTask() {
+    const title = newTask.title.trim();
+    if (!title) return;
+    const baseId = newTask.id.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const id = baseId || `custom-task-${Date.now()}`;
+    const uniqueId = draft.some((task) => task.id === id) ? `${id}-${Date.now()}` : id;
+    const task: Task = {
+      ...newTask,
+      id: uniqueId,
+      title,
+      description: newTask.description.trim() || 'Complete this demo task',
+      amount: Number(Math.max(0, newTask.amount).toFixed(4)),
+      duration: newTask.duration.trim() || '15 sec',
+      claimed: false,
+    };
+    const next = [...draft, task];
+    setDraft(next);
+    onTasksChange(next);
+    setNewTask({
+      id: '',
+      title: '',
+      description: '',
+      amount: 0.25,
+      duration: '15 sec',
+      claimed: false,
+      kind: 'video',
+    });
+    setNewTaskOpen(false);
+  }
+
+  function restoreDefaults() {
+    const next = initialTasks.map((task) => ({ ...task }));
+    setDraft(next);
+    onResetTasks();
+  }
+
+  return (
+    <Modal title="Demo Admin" eyebrow="Local controls" onClose={onClose}>
+      <div className="mt-4 rounded-2xl border border-[#c9ebda] bg-[#f1fbf5] p-4">
+        <div className="flex items-start gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#d9f3e4] text-[#16845a]">
+            <ShieldCheck size={17} />
+          </span>
+          <div>
+            <p className="text-[12px] font-bold text-[#16845a]">DEMO ADMIN ONLY</p>
+            <p className="mt-1 text-[10px] leading-4 text-[#718188]">
+              Changes affect this device's simulated tasks only. No real USDT, payments, or other users are controlled here.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-2">
+      <div className="rounded-xl border border-[#d8e2e3] bg-[#fbfdfc] p-3">
+          <p className="font-mono-custom text-[9px] uppercase text-[#82919a]">Tasks</p>
+          <p className="mt-1 font-display-custom text-[18px] font-bold text-[#102b3a]">{draft.length}</p>
+        </div>
+        <div className="rounded-xl border border-[#d8e2e3] bg-[#fbfdfc] p-3">
+          <p className="font-mono-custom text-[9px] uppercase text-[#82919a]">Active</p>
+          <p className="mt-1 font-display-custom text-[18px] font-bold text-[#16845a]">{draft.filter((task) => !task.claimed).length}</p>
+        </div>
+        <div className="rounded-xl border border-[#d8e2e3] bg-[#fbfdfc] p-3">
+          <p className="font-mono-custom text-[9px] uppercase text-[#82919a]">Rewards</p>
+          <p className="mt-1 font-display-custom text-[18px] font-bold text-[#16845a]">{draft.reduce((sum, task) => sum + task.amount, 0).toFixed(2)}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 flex gap-2">
+        <button
+          type="button"
+          className="pressable flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#102b3a] py-3 text-[11px] font-bold text-white"
+          onClick={() => setNewTaskOpen((open) => !open)}
+          data-testid="button-admin-add-task"
+        >
+          <Plus size={14} />
+          {newTaskOpen ? 'Close add form' : 'Add task'}
+        </button>
+        <button
+          type="button"
+          className="pressable flex items-center justify-center gap-2 rounded-xl border border-[#d8e2e3] bg-[#fbfdfc] px-3 py-3 text-[11px] font-bold text-[#536b72]"
+          onClick={restoreDefaults}
+          data-testid="button-admin-restore-tasks"
+        >
+          <RefreshCw size={14} />
+          Defaults
+        </button>
+      </div>
+
+      {newTaskOpen && (
+        <div className="mt-3 rounded-2xl border border-[#d8e2e3] bg-[#fbfdfc] p-3.5">
+          <p className="text-[12px] font-bold text-[#102b3a]">New demo task</p>
+          <div className="mt-3 space-y-2.5">
+            <input
+              className="w-full rounded-xl border border-[#d8e2e3] bg-white px-3 py-2.5 text-[11px] outline-none focus:border-[#1daf73]"
+              placeholder="Task ID (optional)"
+              value={newTask.id}
+              onChange={(event) => setNewTask((current) => ({ ...current, id: event.target.value }))}
+            />
+            <input
+              className="w-full rounded-xl border border-[#d8e2e3] bg-white px-3 py-2.5 text-[11px] outline-none focus:border-[#1daf73]"
+              placeholder="Task title"
+              value={newTask.title}
+              onChange={(event) => setNewTask((current) => ({ ...current, title: event.target.value }))}
+            />
+            <input
+              className="w-full rounded-xl border border-[#d8e2e3] bg-white px-3 py-2.5 text-[11px] outline-none focus:border-[#1daf73]"
+              placeholder="Description"
+              value={newTask.description}
+              onChange={(event) => setNewTask((current) => ({ ...current, description: event.target.value }))}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                className="w-full rounded-xl border border-[#d8e2e3] bg-white px-3 py-2.5 text-[11px] outline-none focus:border-[#1daf73]"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Reward"
+                value={newTask.amount}
+                onChange={(event) => setNewTask((current) => ({ ...current, amount: Number(event.target.value) }))}
+              />
+              <input
+                className="w-full rounded-xl border border-[#d8e2e3] bg-white px-3 py-2.5 text-[11px] outline-none focus:border-[#1daf73]"
+                placeholder="Duration"
+                value={newTask.duration}
+                onChange={(event) => setNewTask((current) => ({ ...current, duration: event.target.value }))}
+              />
+            </div>
+            <select
+              className="w-full rounded-xl border border-[#d8e2e3] bg-white px-3 py-2.5 text-[11px] outline-none focus:border-[#1daf73]"
+              value={newTask.kind}
+              onChange={(event) => setNewTask((current) => ({ ...current, kind: event.target.value as Task['kind'] }))}
+            >
+              <option value="video">Video / Ad</option>
+              <option value="check">Daily check</option>
+            </select>
+            <button
+              type="button"
+              className="pressable w-full rounded-xl bg-[#1daf73] py-3 text-[11px] font-bold text-white disabled:opacity-50"
+              onClick={addTask}
+              disabled={!newTask.title.trim()}
+              data-testid="button-admin-save-new-task"
+            >
+              Save task
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4 max-h-[430px] space-y-2.5 overflow-y-auto pr-1">
+        {draft.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-[#d8e2e3] p-6 text-center">
+            <p className="text-[12px] font-bold text-[#536b72]">No demo tasks</p>
+            <p className="mt-1 text-[10px] text-[#87969b]">Add a task to populate the earning list.</p>
+          </div>
+        ) : draft.map((task, index) => (
+          <div key={task.id} className="rounded-2xl border border-[#d8e2e3] bg-[#fbfdfc] p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-mono-custom text-[9px] uppercase tracking-[.1em] text-[#82919a]">Task {index + 1}</p>
+                <p className="truncate text-[12px] font-bold text-[#102b3a]">{task.id}</p>
+              </div>
+              <button
+                type="button"
+                className="pressable grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#fff0e9] text-[#b06149]"
+                onClick={() => removeTask(task.id)}
+                aria-label={`Delete ${task.title}`}
+                data-testid={`button-admin-delete-${task.id}`}
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+
+            <div className="mt-2.5 space-y-2">
+              <input
+                className="w-full rounded-lg border border-[#d8e2e3] bg-white px-2.5 py-2 text-[10px] outline-none focus:border-[#1daf73]"
+                value={task.title}
+                onChange={(event) => updateTask(task.id, 'title', event.target.value)}
+                aria-label={`Title ${task.id}`}
+              />
+              <input
+                className="w-full rounded-lg border border-[#d8e2e3] bg-white px-2.5 py-2 text-[10px] outline-none focus:border-[#1daf73]"
+                value={task.description}
+                onChange={(event) => updateTask(task.id, 'description', event.target.value)}
+                aria-label={`Description ${task.id}`}
+              />
+              <div className="grid grid-cols-3 gap-2">
+                <input
+                  className="w-full rounded-lg border border-[#d8e2e3] bg-white px-2.5 py-2 text-[10px] outline-none focus:border-[#1daf73]"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={task.amount}
+                  onChange={(event) => updateTask(task.id, 'amount', Number(event.target.value))}
+                  aria-label={`Reward ${task.id}`}
+                />
+                <input
+                  className="w-full rounded-lg border border-[#d8e2e3] bg-white px-2.5 py-2 text-[10px] outline-none focus:border-[#1daf73]"
+                  value={task.duration}
+                  onChange={(event) => updateTask(task.id, 'duration', event.target.value)}
+                  aria-label={`Duration ${task.id}`}
+                />
+                <select
+                  className="w-full rounded-lg border border-[#d8e2e3] bg-white px-2 py-2 text-[10px] outline-none focus:border-[#1daf73]"
+                  value={task.kind}
+                  onChange={(event) => updateTask(task.id, 'kind', event.target.value as Task['kind'])}
+                  aria-label={`Type ${task.id}`}
+                >
+                  <option value="video">Video</option>
+                  <option value="check">Check</option>
+                </select>
+              </div>
+              <label className="flex items-center gap-2 text-[10px] text-[#718188]">
+                <input
+                  type="checkbox"
+                  checked={task.claimed}
+                  onChange={(event) => updateTask(task.id, 'claimed', event.target.checked)}
+                />
+                Mark completed
+              </label>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        className="pressable mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#edc9aa] bg-[#fffaf5] py-3 text-[11px] font-bold text-[#aa5e2a]"
+        onClick={onResetDemo}
+        data-testid="button-admin-reset-demo"
+      >
+        <RefreshCw size={14} />
+        Reset all local demo data
+      </button>
+
+      <button
+        type="button"
+        className="pressable mt-2 flex w-full items-center justify-center rounded-xl bg-[#102b3a] py-3 text-[11px] font-bold text-white"
+        onClick={onClose}
+        data-testid="button-close-demo-admin"
+      >
+        Close Admin
+      </button>
+    </Modal>
+  );
 }
 
 function SettingRow({ icon, title, description, enabled, onClick, testId }: { icon: ReactNode; title: string; description: string; enabled: boolean; onClick: () => void; testId: string }) {
