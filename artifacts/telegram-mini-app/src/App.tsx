@@ -16,7 +16,6 @@ import {
   Settings2,
   Share2,
   ShieldCheck,
-  UsersRound,
   WalletCards,
   X,
   Zap,
@@ -26,7 +25,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { createTelegramBridge } from '@/lib/telegram';
-import { getAdsgramController } from '@/lib/adsgram';
+import { showAdsgramRewardedAd } from '@/lib/adsgram';
 import { Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 
 const queryClient = new QueryClient();
@@ -41,7 +40,7 @@ type Task = {
   amount: number;
   duration: string;
   claimed: boolean;
-  kind: 'video' | 'check' | 'community';
+  kind: 'video' | 'check';
 };
 type HistoryItem = {
   id: string;
@@ -68,8 +67,13 @@ function getLocalDateKey(date = new Date()) {
 
 const initialTasks: Task[] = [
   { id: 'daily-check', title: 'Daily Check-in', description: 'Claim today’s demo reward', amount: 0.24, duration: '5 sec', claimed: false, kind: 'check' },
-  { id: 'watch-brief', title: 'Watch Demo Ad', description: 'Preview a partner message', amount: 0.38, duration: '15 sec', claimed: false, kind: 'video' },
-  { id: 'community-visit', title: 'Visit Sponsor', description: 'Open the sponsor demo', amount: 0.18, duration: '10 sec', claimed: false, kind: 'community' },
+  { id: 'watch-brief', title: 'Watch a Short Ad', description: 'Complete a rewarded demo ad', amount: 0.38, duration: '15 sec', claimed: false, kind: 'video' },
+  { id: 'rewarded-2', title: 'Watch Rewarded Ad 2', description: 'Complete a rewarded demo ad', amount: 0.42, duration: '15 sec', claimed: false, kind: 'video' },
+  { id: 'rewarded-3', title: 'Watch Rewarded Ad 3', description: 'Complete a rewarded demo ad', amount: 0.46, duration: '20 sec', claimed: false, kind: 'video' },
+  { id: 'rewarded-4', title: 'Watch Rewarded Ad 4', description: 'Complete a rewarded demo ad', amount: 0.52, duration: '20 sec', claimed: false, kind: 'video' },
+  { id: 'rewarded-5', title: 'Watch Rewarded Ad 5', description: 'Complete a rewarded demo ad', amount: 0.58, duration: '25 sec', claimed: false, kind: 'video' },
+  { id: 'community-visit', title: 'Partner Ad', description: 'Complete a partner demo ad', amount: 0.31, duration: '15 sec', claimed: false, kind: 'video' },
+  { id: 'sponsored-task', title: 'Sponsored Task', description: 'Complete a sponsored demo ad', amount: 0.64, duration: '25 sec', claimed: false, kind: 'video' },
 ];
 
 const initialHistory: HistoryItem[] = [
@@ -107,10 +111,14 @@ function Home() {
       if (stored) {
         try {
           const storedState = JSON.parse(stored) as Partial<DemoState>;
+          const storedTasks = Array.isArray(storedState.tasks) ? storedState.tasks : [];
           const hydratedState: DemoState = {
             ...initialState,
             ...storedState,
-            tasks: Array.isArray(storedState.tasks) ? storedState.tasks : initialState.tasks,
+            tasks: initialTasks.map((task) => {
+              const storedTask = storedTasks.find((candidate) => candidate.id === task.id);
+              return storedTask ? { ...task, claimed: storedTask.claimed === true } : task;
+            }),
             history: Array.isArray(storedState.history) ? storedState.history : initialState.history,
           };
           const today = getLocalDateKey();
@@ -183,25 +191,16 @@ function Home() {
     setWatchingTask(taskId);
     setAdProgress(1);
 
-    if (task.id === 'watch-brief') {
-      const controller = getAdsgramController();
-      if (!controller) {
-        watchingTaskRef.current = null;
-        setWatchingTask(null);
-        setAdProgress(0);
-        setToast('Demo ad is unavailable right now. No reward was added.');
-        return;
-      }
-
+    if (task.kind === 'video') {
       setAdProgress(2);
       try {
-        const result = await controller.show();
-        if (result.done === true && result.error !== true) {
+        const rewarded = await showAdsgramRewardedAd();
+        if (rewarded) {
           creditDemoReward(task);
           if (state.haptics) bridge.notification('success');
           setToast(`+${task.amount.toFixed(2)} DEMO USDT added to demo balance`);
         } else {
-          setToast('No DEMO reward — the ad was not completed.');
+          setToast('No DEMO reward — the ad was skipped, closed, or unavailable.');
         }
       } catch {
         setToast('No DEMO reward — the ad was skipped, closed, or unavailable.');
@@ -213,20 +212,12 @@ function Home() {
       return;
     }
 
-    window.setTimeout(() => {
-      setAdProgress(2);
-      window.setTimeout(() => {
-        setAdProgress(3);
-        window.setTimeout(() => {
-          creditDemoReward(task);
-           watchingTaskRef.current = null;
-          setWatchingTask(null);
-          setAdProgress(0);
-          if (state.haptics) bridge.notification('success');
-          setToast(`+${task.amount.toFixed(2)} USDT added to demo balance`);
-        }, 470);
-      }, 470);
-    }, 470);
+    creditDemoReward(task);
+    watchingTaskRef.current = null;
+    setWatchingTask(null);
+    setAdProgress(0);
+    if (state.haptics) bridge.notification('success');
+    setToast(`+${task.amount.toFixed(2)} DEMO USDT added to demo balance`);
   }
 
   function resetDemo() {
@@ -329,7 +320,7 @@ function Home() {
           <section id="earn" className="mt-8 stagger-in stagger-2" aria-label="Earn tasks">
             <SectionHeading eyebrow="Daily earning loop" title="Complete tasks" action={`${claimedCount} of ${state.tasks.length}`} />
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#dce8e5]"><div className="h-full rounded-full bg-[#1daf73] transition-all duration-500" style={{ width: `${taskProgress}%` }} /></div>
-            <div className="mt-4 space-y-2.5">
+            <div className="task-list-scroll mt-4 max-h-[520px] space-y-2.5 overflow-y-auto pr-1" data-testid="task-list">
               {state.tasks.map((task, index) => <TaskCard key={task.id} task={task} index={index} watching={watchingTask === task.id} progress={adProgress} onWatch={watchTask} />)}
             </div>
           </section>
@@ -386,8 +377,9 @@ function SectionHeading({ eyebrow, title, action }: { eyebrow: string; title: st
 }
 
 function TaskCard({ task, index, watching, progress, onWatch }: { task: Task; index: number; watching: boolean; progress: number; onWatch: (id: string) => void }) {
-  const icon = task.kind === 'video' ? <Play size={16} fill="currentColor" /> : task.kind === 'community' ? <UsersRound size={17} /> : <Check size={17} />;
+  const icon = task.kind === 'video' ? <Play size={16} fill="currentColor" /> : <Check size={17} />;
   const status = watching ? 'In progress' : task.claimed ? (task.id === 'daily-check' ? 'Completed today' : 'Completed') : 'Ready';
+  const actionLabel = task.kind === 'check' ? 'Claim reward' : 'Watch Ad';
   return <article className={`stagger-in stagger-${Math.min(index + 1, 4)} rounded-[1.35rem] border p-3.5 transition ${task.claimed ? 'border-[#c9ebda] bg-[#f1fbf5]' : 'border-[#d8e2e3] bg-[#fbfdfc] hover:border-[#acd9c2]'}`} data-testid={`card-task-${task.id}`}>
     <div className="flex items-center gap-3">
       <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${task.claimed ? 'bg-[#d9f3e4] text-[#16845a]' : 'bg-[#e8f1f1] text-[#466872]'}`}>{task.claimed ? <Check size={18} strokeWidth={2.5} /> : icon}</span>
@@ -396,7 +388,7 @@ function TaskCard({ task, index, watching, progress, onWatch }: { task: Task; in
     </div>
     <div className="mt-2 flex items-center justify-between px-0.5"><span className="font-mono-custom text-[9px] uppercase tracking-[.12em] text-[#94a3a6]">Status</span><span className={`font-mono-custom text-[9px] uppercase tracking-[.1em] ${task.claimed ? 'text-[#16845a]' : watching ? 'text-[#d87532]' : 'text-[#71858c]'}`}>{status}</span></div>
     <button className={`pressable mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[11px] font-bold ${task.claimed ? 'cursor-default bg-[#e1f3e8] text-[#5b8c74]' : 'bg-[#102b3a] text-[#f4fbf7] hover:bg-[#173f4b]'} disabled:cursor-wait disabled:opacity-70`} onClick={() => onWatch(task.id)} disabled={task.claimed || watching} data-testid={`button-watch-ad-${task.id}`}>
-      {watching ? <><RefreshCw size={14} className="animate-spin" />{progress === 1 ? 'Opening demo…' : progress === 2 ? (task.id === 'watch-brief' ? 'Watching AdsGram…' : 'Watching demo…') : 'Crediting demo…'}</> : task.claimed ? <><Check size={14} />Completed</> : <><Play size={14} fill="currentColor" />Watch Ad · +{task.amount.toFixed(2)} DEMO USDT</>}
+      {watching ? <><RefreshCw size={14} className="animate-spin" />{progress === 1 ? 'Opening demo…' : progress === 2 ? (task.kind === 'video' ? 'Watching AdsGram…' : 'Claiming demo…') : 'Crediting demo…'}</> : task.claimed ? <><Check size={14} />Completed</> : <><Play size={14} fill="currentColor" />{actionLabel} · +{task.amount.toFixed(2)} DEMO USDT</>}
     </button>
   </article>;
 }

@@ -9,6 +9,8 @@ export type AdsgramShowPromiseResult = {
 
 export type AdsgramController = {
   show: () => Promise<AdsgramShowPromiseResult>;
+  addEventListener: (event: 'onReward', callback: () => void) => void;
+  removeEventListener: (event: 'onReward', callback: () => void) => void;
 };
 
 type AdsgramWindow = Window & {
@@ -41,4 +43,33 @@ export function getAdsgramController(): AdsgramController | null {
   });
 
   return controller;
+}
+
+export function showAdsgramRewardedAd(): Promise<boolean> {
+  const adController = getAdsgramController();
+  if (!adController) return Promise.resolve(false);
+
+  return new Promise((resolve) => {
+    let settled = false;
+
+    const settle = (rewarded: boolean) => {
+      if (settled) return;
+      settled = true;
+      adController.removeEventListener('onReward', handleReward);
+      resolve(rewarded);
+    };
+
+    const handleReward = () => settle(true);
+    adController.addEventListener('onReward', handleReward);
+
+    try {
+      adController.show()
+        .catch(() => settle(false))
+        .finally(() => {
+          if (!settled) settle(false);
+        });
+    } catch {
+      settle(false);
+    }
+  });
 }
