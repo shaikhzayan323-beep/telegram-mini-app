@@ -43,7 +43,8 @@ type Task = {
   amount: number;
   duration: string;
   claimed: boolean;
-  kind: 'video' | 'check';
+enabled: boolean;
+kind: 'video' | 'check';
 };
 type HistoryItem = {
   id: string;
@@ -70,14 +71,14 @@ function getLocalDateKey(date = new Date()) {
 }
 
 const initialTasks: Task[] = [
-  { id: 'daily-check', title: 'Daily Check-in', description: 'Claim today’s demo reward', amount: 0.24, duration: '5 sec', claimed: false, kind: 'check' },
-  { id: 'watch-brief', title: 'Watch a Short Ad', description: 'Complete a rewarded demo ad', amount: 0.38, duration: '15 sec', claimed: false, kind: 'video' },
-  { id: 'rewarded-2', title: 'Watch Rewarded Ad 2', description: 'Complete a rewarded demo ad', amount: 0.42, duration: '15 sec', claimed: false, kind: 'video' },
-  { id: 'rewarded-3', title: 'Watch Rewarded Ad 3', description: 'Complete a rewarded demo ad', amount: 0.46, duration: '20 sec', claimed: false, kind: 'video' },
-  { id: 'rewarded-4', title: 'Watch Rewarded Ad 4', description: 'Complete a rewarded demo ad', amount: 0.52, duration: '20 sec', claimed: false, kind: 'video' },
-  { id: 'rewarded-5', title: 'Watch Rewarded Ad 5', description: 'Complete a rewarded demo ad', amount: 0.58, duration: '25 sec', claimed: false, kind: 'video' },
-  { id: 'community-visit', title: 'Partner Ad', description: 'Complete a partner demo ad', amount: 0.31, duration: '15 sec', claimed: false, kind: 'video' },
-  { id: 'sponsored-task', title: 'Sponsored Task', description: 'Complete a sponsored demo ad', amount: 0.64, duration: '25 sec', claimed: false, kind: 'video' },
+  { id: 'daily-check', title: 'Daily Check-in', description: 'Claim today’s demo reward', amount: 0.24, duration: '5 sec', claimed: false, enabled: true, kind: 'check' },
+  { id: 'watch-brief', title: 'Watch a Short Ad', description: 'Complete a rewarded demo ad', amount: 0.38, duration: '15 sec', claimed: false, enabled: true, kind: 'video' },
+  { id: 'rewarded-2', title: 'Watch Rewarded Ad 2', description: 'Complete a rewarded demo ad', amount: 0.42, duration: '15 sec', claimed: false, enabled: true, kind: 'video' },
+  { id: 'rewarded-3', title: 'Watch Rewarded Ad 3', description: 'Complete a rewarded demo ad', amount: 0.46, duration: '20 sec', claimed: false, enabled: true, kind: 'video' },
+  { id: 'rewarded-4', title: 'Watch Rewarded Ad 4', description: 'Complete a rewarded demo ad', amount: 0.52, duration: '20 sec', claimed: false, enabled: true, kind: 'video' },
+  { id: 'rewarded-5', title: 'Watch Rewarded Ad 5', description: 'Complete a rewarded demo ad', amount: 0.58, duration: '25 sec', claimed: false, enabled: true, kind:'video' },
+  { id: 'community-visit', title: 'Partner Ad', description: 'Complete a partner demo ad', amount: 0.31, duration: '15 sec', claimed: false, enabled: true, kind:'video' },
+  { id: 'sponsored-task', title: 'Sponsored Task', description: 'Complete a sponsored demo ad', amount: 0.64, duration: '25 sec', claimed: false, enabled: true, kind: 'video' },
 ];
 
 const initialHistory: HistoryItem[] = [
@@ -112,7 +113,7 @@ function Home() {
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
-  const [watchingTask, setWatchingTask] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);const [watchingTask, setWatchingTask] = useState<string | null>(null);
   const watchingTaskRef = useRef<string | null>(null);
   const rewardedTaskRef = useRef(new Set<string>());
   const [adProgress, setAdProgress] = useState(0);
@@ -722,7 +723,8 @@ function AdminPanel({
     amount: 0.25,
     duration: '15 sec',
     claimed: false,
-    kind: 'video',
+enabled: true,
+kind: 'video',
   });
 
   useEffect(() => {
@@ -775,7 +777,8 @@ function AdminPanel({
       amount: 0.25,
       duration: '15 sec',
       claimed: false,
-      kind: 'video',
+enabled: true,
+kind: 'video',
     });
     setNewTaskOpen(false);
   }
@@ -1000,7 +1003,23 @@ function AdminPanel({
                       onChange={(event) => updateTask(task.id, 'claimed', event.target.checked)}
                     />
                     Mark completed
-                  </label>
+                  </label><button
+  type="button"
+  className={`pressable flex w-full items-center justify-between rounded-lg border px-2.5 py-2 text-[10px] font-bold ${
+    task.enabled
+      ? 'border-[#c9ebda] bg-[#f1fbf5] text-[#16845a]'
+      : 'border-[#e1d7d2] bg-[#fff7f2] text-[#aa6b4d]'
+  }`}
+  onClick={() => updateTask(task.id, 'enabled', !task.enabled)}
+  role="switch"
+  aria-checked={task.enabled}
+  data-testid={`button-admin-toggle-${task.id}`}
+>
+  <span>{task.enabled ? 'Task enabled' : 'Task disabled'}</span>
+  <span>
+    {task.enabled ? 'ON' : 'OFF'}
+  </span>
+</button>
                 </div>
               </div>
             ))}

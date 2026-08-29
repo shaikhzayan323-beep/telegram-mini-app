@@ -1,5 +1,6 @@
 type TelegramBridge = {
   isTelegram: boolean;
+  initData: string;
   firstName: string;
   userId: string | null;
   startParam: string | null;
@@ -41,7 +42,7 @@ export function createTelegramBridge(): TelegramBridge {
     typeof window === 'undefined'
       ? undefined
       : (window as TelegramWindow).Telegram?.WebApp;
-
+const initData = webApp?.initData || '';
   const firstName =
     webApp?.initDataUnsafe?.user?.first_name?.trim() || 'User';
 
@@ -62,8 +63,8 @@ export function createTelegramBridge(): TelegramBridge {
     null;
 
   return {
-    isTelegram: Boolean(webApp),
-    firstName,
+  isTelegram: Boolean(webApp),
+  firstName,
     userId,
     startParam,
 
