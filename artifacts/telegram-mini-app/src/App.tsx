@@ -309,10 +309,35 @@ function Home() {
               <span className="font-display-custom block text-[12px] font-bold tracking-[.09em] text-[#102b3a]">USDT MINING</span>
               <span className="font-mono-custom block text-[9px] uppercase tracking-[.16em] text-[#71808a]">Wallet / Demo mode</span>
             </span>
-          </button>
-          <button className="pressable grid h-10 w-10 place-items-center rounded-full border border-[#d8e2e3] bg-[#f9fcfb] text-[#49616c] hover:border-[#1daf73]" onClick={() => { setProfileOpen(true); if (state.haptics) bridge.impact(); }} aria-label="Open profile and settings" data-testid="button-open-profile">
-            <span className="font-display-custom text-[13px] font-bold">ME</span>
-          </button>
+      </button>
+          <div className="flex items-center gap-2">
+  <button
+    type="button"
+    className="pressable grid h-10 w-10 place-items-center rounded-full border border-[#d8e2e3] bg-[#f9fcfb] text-[#49616c]"
+    onClick={() => {
+      bridge.fullscreen();
+      if (state.haptics) bridge.impact('light');
+    }}
+    aria-label="Enter fullscreen"
+    data-testid="button-fullscreen"
+  >
+    <span className="text-[18px]">⛶</span>
+  </button>
+
+  <button
+    type="button"
+    className="pressable grid h-10 w-10 place-items-center rounded-full border border-[#d8e2e3] bg-[#f9fcfb] text-[#49616c]"
+    onClick={() => {
+      setProfileOpen(true);
+      if (state.haptics) bridge.impact();
+    }}
+    aria-label="Open profile and settings"
+    data-testid="button-open-profile"
+  >
+    <span className="font-display-custom text-[13px] font-bold">ME</span>
+  </button>
+</div>
+          
         </header>
 
         <section className="mt-7 stagger-in stagger-1" aria-label="Wallet overview">
@@ -410,7 +435,25 @@ onClose={() => setProfileOpen(false)}
 onAdmin={() => setAdminOpen(true)}
 />
       )}
-
+      {adminOpen && (
+        <AdminPanel
+          tasks={state.tasks}
+          onTasksChange={(tasks) =>
+            setState((current) => ({
+              ...current,
+              tasks,
+            }))
+          }
+          onResetTasks={() =>
+            setState((current) => ({
+              ...current,
+              tasks: initialTasks.map((task) => ({ ...task })),
+            }))
+          }
+          onResetDemo={resetDemo}
+          onClose={() => setAdminOpen(false)}
+        />
+      )}
       {withdrawOpen && (
         <Modal
           title="Withdrawal preview"
@@ -657,7 +700,13 @@ function ProfileSheet({ bridge, haptics, onToggleHaptics, onReset, onClose, onAd
 }
 
 
-function AdminPanel({ tasks, onTasksChange, onResetTasks, onResetDemo, onClose }: {
+function AdminPanel({
+  tasks,
+  onTasksChange,
+  onResetTasks,
+  onResetDemo,
+  onClose,
+}: {
   tasks: Task[];
   onTasksChange: (tasks: Task[]) => void;
   onResetTasks: () => void;
@@ -681,7 +730,9 @@ function AdminPanel({ tasks, onTasksChange, onResetTasks, onResetDemo, onClose }
   }, [tasks]);
 
   function updateTask(id: string, field: keyof Task, value: string | number | boolean) {
-    const next = draft.map((task) => task.id === id ? { ...task, [field]: value } as Task : task);
+    const next = draft.map((task) =>
+      task.id === id ? ({ ...task, [field]: value } as Task) : task
+    );
     setDraft(next);
     onTasksChange(next);
   }
@@ -695,18 +746,25 @@ function AdminPanel({ tasks, onTasksChange, onResetTasks, onResetDemo, onClose }
   function addTask() {
     const title = newTask.title.trim();
     if (!title) return;
-    const baseId = newTask.id.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    const id = baseId || `custom-task-${Date.now()}`;
-    const uniqueId = draft.some((task) => task.id === id) ? `${id}-${Date.now()}` : id;
+
+    const baseId =
+      newTask.id.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') ||
+      `custom-task-${Date.now()}`;
+
+    const id = draft.some((task) => task.id === baseId)
+      ? `${baseId}-${Date.now()}`
+      : baseId;
+
     const task: Task = {
       ...newTask,
-      id: uniqueId,
+      id,
       title,
       description: newTask.description.trim() || 'Complete this demo task',
       amount: Number(Math.max(0, newTask.amount).toFixed(4)),
       duration: newTask.duration.trim() || '15 sec',
       claimed: false,
     };
+
     const next = [...draft, task];
     setDraft(next);
     onTasksChange(next);
@@ -725,216 +783,250 @@ function AdminPanel({ tasks, onTasksChange, onResetTasks, onResetDemo, onClose }
   function restoreDefaults() {
     const next = initialTasks.map((task) => ({ ...task }));
     setDraft(next);
+    onTasksChange(next);
     onResetTasks();
   }
 
   return (
-    <Modal title="Demo Admin" eyebrow="Local controls" onClose={onClose}>
-      <div className="mt-4 rounded-2xl border border-[#c9ebda] bg-[#f1fbf5] p-4">
-        <div className="flex items-start gap-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#d9f3e4] text-[#16845a]">
-            <ShieldCheck size={17} />
-          </span>
-          <div>
-            <p className="text-[12px] font-bold text-[#16845a]">DEMO ADMIN ONLY</p>
-            <p className="mt-1 text-[10px] leading-4 text-[#718188]">
-              Changes affect this device's simulated tasks only. No real USDT, payments, or other users are controlled here.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-4 grid grid-cols-3 gap-2">
-      <div className="rounded-xl border border-[#d8e2e3] bg-[#fbfdfc] p-3">
-          <p className="font-mono-custom text-[9px] uppercase text-[#82919a]">Tasks</p>
-          <p className="mt-1 font-display-custom text-[18px] font-bold text-[#102b3a]">{draft.length}</p>
-        </div>
-        <div className="rounded-xl border border-[#d8e2e3] bg-[#fbfdfc] p-3">
-          <p className="font-mono-custom text-[9px] uppercase text-[#82919a]">Active</p>
-          <p className="mt-1 font-display-custom text-[18px] font-bold text-[#16845a]">{draft.filter((task) => !task.claimed).length}</p>
-        </div>
-        <div className="rounded-xl border border-[#d8e2e3] bg-[#fbfdfc] p-3">
-          <p className="font-mono-custom text-[9px] uppercase text-[#82919a]">Rewards</p>
-          <p className="mt-1 font-display-custom text-[18px] font-bold text-[#16845a]">{draft.reduce((sum, task) => sum + task.amount, 0).toFixed(2)}</p>
-        </div>
-      </div>
-
-      <div className="mt-4 flex gap-2">
-        <button
-          type="button"
-          className="pressable flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#102b3a] py-3 text-[11px] font-bold text-white"
-          onClick={() => setNewTaskOpen((open) => !open)}
-          data-testid="button-admin-add-task"
-        >
-          <Plus size={14} />
-          {newTaskOpen ? 'Close add form' : 'Add task'}
-        </button>
-        <button
-          type="button"
-          className="pressable flex items-center justify-center gap-2 rounded-xl border border-[#d8e2e3] bg-[#fbfdfc] px-3 py-3 text-[11px] font-bold text-[#536b72]"
-          onClick={restoreDefaults}
-          data-testid="button-admin-restore-tasks"
-        >
-          <RefreshCw size={14} />
-          Defaults
-        </button>
-      </div>
-
-      {newTaskOpen && (
-        <div className="mt-3 rounded-2xl border border-[#d8e2e3] bg-[#fbfdfc] p-3.5">
-          <p className="text-[12px] font-bold text-[#102b3a]">New demo task</p>
-          <div className="mt-3 space-y-2.5">
-            <input
-              className="w-full rounded-xl border border-[#d8e2e3] bg-white px-3 py-2.5 text-[11px] outline-none focus:border-[#1daf73]"
-              placeholder="Task ID (optional)"
-              value={newTask.id}
-              onChange={(event) => setNewTask((current) => ({ ...current, id: event.target.value }))}
-            />
-            <input
-              className="w-full rounded-xl border border-[#d8e2e3] bg-white px-3 py-2.5 text-[11px] outline-none focus:border-[#1daf73]"
-              placeholder="Task title"
-              value={newTask.title}
-              onChange={(event) => setNewTask((current) => ({ ...current, title: event.target.value }))}
-            />
-            <input
-              className="w-full rounded-xl border border-[#d8e2e3] bg-white px-3 py-2.5 text-[11px] outline-none focus:border-[#1daf73]"
-              placeholder="Description"
-              value={newTask.description}
-              onChange={(event) => setNewTask((current) => ({ ...current, description: event.target.value }))}
-            />
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                className="w-full rounded-xl border border-[#d8e2e3] bg-white px-3 py-2.5 text-[11px] outline-none focus:border-[#1daf73]"
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="Reward"
-                value={newTask.amount}
-                onChange={(event) => setNewTask((current) => ({ ...current, amount: Number(event.target.value) }))}
-              />
-              <input
-                className="w-full rounded-xl border border-[#d8e2e3] bg-white px-3 py-2.5 text-[11px] outline-none focus:border-[#1daf73]"
-                placeholder="Duration"
-                value={newTask.duration}
-                onChange={(event) => setNewTask((current) => ({ ...current, duration: event.target.value }))}
-              />
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#102b3a]/35 p-3 backdrop-blur-[3px]"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Demo Admin"
+    >
+      <div className="flex max-h-[92dvh] w-full max-w-[520px] flex-col overflow-hidden rounded-[1.7rem] bg-[#f9fcfb] shadow-[0_24px_70px_rgba(16,43,58,.24)]">
+        <div className="shrink-0 border-b border-[#d8e2e3] p-5">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="font-mono-custom text-[10px] uppercase tracking-[.16em] text-[#1b9b68]">
+                Local controls
+              </p>
+              <h2 className="mt-1 font-display-custom text-[20px] font-bold tracking-[-.05em] text-[#102b3a]">
+                Demo Admin
+              </h2>
             </div>
-            <select
-              className="w-full rounded-xl border border-[#d8e2e3] bg-white px-3 py-2.5 text-[11px] outline-none focus:border-[#1daf73]"
-              value={newTask.kind}
-              onChange={(event) => setNewTask((current) => ({ ...current, kind: event.target.value as Task['kind'] }))}
-            >
-              <option value="video">Video / Ad</option>
-              <option value="check">Daily check</option>
-            </select>
             <button
               type="button"
-              className="pressable w-full rounded-xl bg-[#1daf73] py-3 text-[11px] font-bold text-white disabled:opacity-50"
-              onClick={addTask}
-              disabled={!newTask.title.trim()}
-              data-testid="button-admin-save-new-task"
+              className="pressable grid h-9 w-9 place-items-center rounded-full bg-[#e8f0f0] text-[#6c8086]"
+              onClick={onClose}
+              aria-label="Close Demo Admin"
+              data-testid="button-close-demo-admin-top"
             >
-              Save task
+              <X size={17} />
             </button>
           </div>
         </div>
-      )}
 
-      <div className="mt-4 max-h-[430px] space-y-2.5 overflow-y-auto pr-1">
-        {draft.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[#d8e2e3] p-6 text-center">
-            <p className="text-[12px] font-bold text-[#536b72]">No demo tasks</p>
-            <p className="mt-1 text-[10px] text-[#87969b]">Add a task to populate the earning list.</p>
-          </div>
-        ) : draft.map((task, index) => (
-          <div key={task.id} className="rounded-2xl border border-[#d8e2e3] bg-[#fbfdfc] p-3">
-            <div className="flex items-center justify-between gap-2">
-              <div className="min-w-0">
-                <p className="font-mono-custom text-[9px] uppercase tracking-[.1em] text-[#82919a]">Task {index + 1}</p>
-                <p className="truncate text-[12px] font-bold text-[#102b3a]">{task.id}</p>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5">
+          <div className="rounded-2xl border border-[#c9ebda] bg-[#f1fbf5] p-4">
+            <div className="flex items-start gap-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#d9f3e4] text-[#16845a]">
+                <ShieldCheck size={17} />
+              </span>
+              <div>
+                <p className="text-[12px] font-bold text-[#16845a]">DEMO ADMIN ONLY</p>
+                <p className="mt-1 text-[10px] leading-4 text-[#718188]">
+                  Changes affect this device&apos;s simulated tasks only. No real USDT,
+                  payments, or other users are controlled here.
+                </p>
               </div>
-              <button
-                type="button"
-                className="pressable grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#fff0e9] text-[#b06149]"
-                onClick={() => removeTask(task.id)}
-                aria-label={`Delete ${task.title}`}
-                data-testid={`button-admin-delete-${task.id}`}
-              >
-                <Trash2 size={14} />
-              </button>
             </div>
+          </div>
 
-            <div className="mt-2.5 space-y-2">
-              <input
-                className="w-full rounded-lg border border-[#d8e2e3] bg-white px-2.5 py-2 text-[10px] outline-none focus:border-[#1daf73]"
-                value={task.title}
-                onChange={(event) => updateTask(task.id, 'title', event.target.value)}
-                aria-label={`Title ${task.id}`}
-              />
-              <input
-                className="w-full rounded-lg border border-[#d8e2e3] bg-white px-2.5 py-2 text-[10px] outline-none focus:border-[#1daf73]"
-                value={task.description}
-                onChange={(event) => updateTask(task.id, 'description', event.target.value)}
-                aria-label={`Description ${task.id}`}
-              />
-              <div className="grid grid-cols-3 gap-2">
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <div className="rounded-xl border border-[#d8e2e3] bg-[#fbfdfc] p-3">
+              <p className="font-mono-custom text-[9px] uppercase text-[#82919a]">Tasks</p>
+              <p className="mt-1 font-display-custom text-[18px] font-bold text-[#102b3a]">{draft.length}</p>
+            </div>
+            <div className="rounded-xl border border-[#d8e2e3] bg-[#fbfdfc] p-3">
+              <p className="font-mono-custom text-[9px] uppercase text-[#82919a]">Active</p>
+              <p className="mt-1 font-display-custom text-[18px] font-bold text-[#16845a]">
+                {draft.filter((task) => !task.claimed).length}
+              </p>
+            </div>
+            <div className="rounded-xl border border-[#d8e2e3] bg-[#fbfdfc] p-3">
+              <p className="font-mono-custom text-[9px] uppercase text-[#82919a]">Rewards</p>
+              <p className="mt-1 font-display-custom text-[18px] font-bold text-[#16845a]">
+                {draft.reduce((sum, task) => sum + task.amount, 0).toFixed(2)}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              className="pressable flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#102b3a] py-3 text-[11px] font-bold text-white"
+              onClick={() => setNewTaskOpen((open) => !open)}
+              data-testid="button-admin-add-task"
+            >
+              <Plus size={14} />
+              {newTaskOpen ? 'Close add form' : 'Add task'}
+            </button>
+            <button
+              type="button"
+              className="pressable flex items-center justify-center gap-2 rounded-xl border border-[#d8e2e3] bg-[#fbfdfc] px-3 py-3 text-[11px] font-bold text-[#536b72]"
+              onClick={restoreDefaults}
+              data-testid="button-admin-restore-tasks"
+            >
+              <RefreshCw size={14} />
+              Defaults
+            </button>
+          </div>
+
+          {newTaskOpen && (
+            <div className="mt-3 rounded-2xl border border-[#d8e2e3] bg-[#fbfdfc] p-3.5">
+              <p className="text-[12px] font-bold text-[#102b3a]">New demo task</p>
+              <div className="mt-3 space-y-2.5">
                 <input
-                  className="w-full rounded-lg border border-[#d8e2e3] bg-white px-2.5 py-2 text-[10px] outline-none focus:border-[#1daf73]"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={task.amount}
-                  onChange={(event) => updateTask(task.id, 'amount', Number(event.target.value))}
-                  aria-label={`Reward ${task.id}`}
+                  className="w-full rounded-xl border border-[#d8e2e3] bg-white px-3 py-2.5 text-[11px] outline-none focus:border-[#1daf73]"
+                  placeholder="Task ID (optional)"
+                  value={newTask.id}
+                  onChange={(event) => setNewTask((current) => ({ ...current, id: event.target.value }))}
                 />
                 <input
-                  className="w-full rounded-lg border border-[#d8e2e3] bg-white px-2.5 py-2 text-[10px] outline-none focus:border-[#1daf73]"
-                  value={task.duration}
-                  onChange={(event) => updateTask(task.id, 'duration', event.target.value)}
-                  aria-label={`Duration ${task.id}`}
+                  className="w-full rounded-xl border border-[#d8e2e3] bg-white px-3 py-2.5 text-[11px] outline-none focus:border-[#1daf73]"
+                  placeholder="Task title"
+                  value={newTask.title}
+                  onChange={(event) => setNewTask((current) => ({ ...current, title: event.target.value }))}
                 />
+                <input
+                  className="w-full rounded-xl border border-[#d8e2e3] bg-white px-3 py-2.5 text-[11px] outline-none focus:border-[#1daf73]"
+                  placeholder="Description"
+                  value={newTask.description}
+                  onChange={(event) => setNewTask((current) => ({ ...current, description: event.target.value }))}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    className="w-full rounded-xl border border-[#d8e2e3] bg-white px-3 py-2.5 text-[11px] outline-none focus:border-[#1daf73]"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="Reward"
+                    value={newTask.amount}
+                    onChange={(event) => setNewTask((current) => ({ ...current, amount: Number(event.target.value) }))}
+                  />
+                  <input
+                    className="w-full rounded-xl border border-[#d8e2e3] bg-white px-3 py-2.5 text-[11px] outline-none focus:border-[#1daf73]"
+                    placeholder="Duration"
+                    value={newTask.duration}
+                    onChange={(event) => setNewTask((current) => ({ ...current, duration: event.target.value }))}
+                  />
+                </div>
                 <select
-                  className="w-full rounded-lg border border-[#d8e2e3] bg-white px-2 py-2 text-[10px] outline-none focus:border-[#1daf73]"
-                  value={task.kind}
-                  onChange={(event) => updateTask(task.id, 'kind', event.target.value as Task['kind'])}
-                  aria-label={`Type ${task.id}`}
+                  className="w-full rounded-xl border border-[#d8e2e3] bg-white px-3 py-2.5 text-[11px] outline-none focus:border-[#1daf73]"
+                  value={newTask.kind}
+                  onChange={(event) => setNewTask((current) => ({ ...current, kind: event.target.value as Task['kind'] }))}
                 >
-                  <option value="video">Video</option>
-                  <option value="check">Check</option>
+                  <option value="video">Video / Ad</option>
+                  <option value="check">Daily check</option>
                 </select>
+                <button
+                  type="button"
+                  className="pressable w-full rounded-xl bg-[#1daf73] py-3 text-[11px] font-bold text-white disabled:opacity-50"
+                  onClick={addTask}
+                  disabled={!newTask.title.trim()}
+                  data-testid="button-admin-save-new-task"
+                >
+                  Save task
+                </button>
               </div>
-              <label className="flex items-center gap-2 text-[10px] text-[#718188]">
-                <input
-                  type="checkbox"
-                  checked={task.claimed}
-                  onChange={(event) => updateTask(task.id, 'claimed', event.target.checked)}
-                />
-                Mark completed
-              </label>
             </div>
+          )}
+
+          <div className="mt-4 space-y-2.5">
+            {draft.map((task, index) => (
+              <div key={task.id} className="rounded-2xl border border-[#d8e2e3] bg-[#fbfdfc] p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-mono-custom text-[9px] uppercase tracking-[.1em] text-[#82919a]">
+                      Task {index + 1}
+                    </p>
+                    <p className="truncate text-[12px] font-bold text-[#102b3a]">{task.id}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="pressable grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#fff0e9] text-[#b06149]"
+                    onClick={() => removeTask(task.id)}
+                    aria-label={`Delete ${task.title}`}
+                    data-testid={`button-admin-delete-${task.id}`}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+
+                <div className="mt-2.5 space-y-2">
+                  <input
+                    className="w-full rounded-lg border border-[#d8e2e3] bg-white px-2.5 py-2 text-[10px] outline-none focus:border-[#1daf73]"
+                    value={task.title}
+                    onChange={(event) => updateTask(task.id, 'title', event.target.value)}
+                    aria-label={`Title ${task.id}`}
+                  />
+                  <input
+                    className="w-full rounded-lg border border-[#d8e2e3] bg-white px-2.5 py-2 text-[10px] outline-none focus:border-[#1daf73]"
+                    value={task.description}
+                    onChange={(event) => updateTask(task.id, 'description', event.target.value)}
+                    aria-label={`Description ${task.id}`}
+                  />
+                  <div className="grid grid-cols-3 gap-2">
+                    <input
+                      className="w-full rounded-lg border border-[#d8e2e3] bg-white px-2.5 py-2 text-[10px] outline-none focus:border-[#1daf73]"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={task.amount}
+                      onChange={(event) => updateTask(task.id, 'amount', Number(event.target.value))}
+                      aria-label={`Reward ${task.id}`}
+                    />
+                    <input
+                      className="w-full rounded-lg border border-[#d8e2e3] bg-white px-2.5 py-2 text-[10px] outline-none focus:border-[#1daf73]"
+                      value={task.duration}
+                      onChange={(event) => updateTask(task.id, 'duration', event.target.value)}
+                      aria-label={`Duration ${task.id}`}
+                    />
+                    <select
+                      className="w-full rounded-lg border border-[#d8e2e3] bg-white px-2 py-2 text-[10px] outline-none focus:border-[#1daf73]"
+                      value={task.kind}
+                      onChange={(event) => updateTask(task.id, 'kind', event.target.value as Task['kind'])}
+                      aria-label={`Type ${task.id}`}
+                    >
+                      <option value="video">Video</option>
+                      <option value="check">Check</option>
+                    </select>
+                  </div>
+                  <label className="flex items-center gap-2 text-[10px] text-[#718188]">
+                    <input
+                      type="checkbox"
+                      checked={task.claimed}
+                      onChange={(event) => updateTask(task.id, 'claimed', event.target.checked)}
+                    />
+                    Mark completed
+                  </label>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+
+          <button
+            type="button"
+            className="pressable mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#edc9aa] bg-[#fffaf5] py-3 text-[11px] font-bold text-[#aa5e2a]"
+            onClick={onResetDemo}
+            data-testid="button-admin-reset-demo"
+          >
+            <RefreshCw size={14} />
+            Reset all local demo data
+          </button>
+
+          <button
+            type="button"
+            className="pressable mt-2 flex w-full items-center justify-center rounded-xl bg-[#102b3a] py-3 text-[11px] font-bold text-white"
+            onClick={onClose}
+            data-testid="button-close-demo-admin"
+          >
+            Close Admin
+          </button>
+        </div>
       </div>
-
-      <button
-        type="button"
-        className="pressable mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#edc9aa] bg-[#fffaf5] py-3 text-[11px] font-bold text-[#aa5e2a]"
-        onClick={onResetDemo}
-        data-testid="button-admin-reset-demo"
-      >
-        <RefreshCw size={14} />
-        Reset all local demo data
-      </button>
-
-      <button
-        type="button"
-        className="pressable mt-2 flex w-full items-center justify-center rounded-xl bg-[#102b3a] py-3 text-[11px] font-bold text-white"
-        onClick={onClose}
-        data-testid="button-close-demo-admin"
-      >
-        Close Admin
-      </button>
-    </Modal>
+    </div>
   );
 }
 
